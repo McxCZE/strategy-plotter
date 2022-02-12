@@ -90,7 +90,7 @@ class Test
     double _enter = double.NaN;
 
     double _minAssetPercOfBudget = 0.001;
-    double _initialBetPercOfBudget = 0.05;
+    double _initialBetPercOfBudget = 0.01;
 
     double _maxEnterPriceDistance = 0.06;
     double _powerMult = 0.02;
@@ -120,7 +120,7 @@ class Test
             // sell?
             var dist = (price - _enter) / _enter;
             var norm = dist / _targetExitPriceDistance;
-            var power = Math.Min(Math.Pow(norm, 4) * _exitPowerMult, _powerCap);
+            var power = Math.Pow(norm, 4) * _exitPowerMult;
             size = -asset * power;
         }
 
