@@ -2,8 +2,9 @@
 
 var random = new Random();
 
-var filename = "FTX_DOGE-PERP_03.12.2020_03.12.2021.csv";
+//var filename = "FTX_DOGE-PERP_03.12.2020_03.12.2021.csv";
 //var filename = "FTX_DOGE-PERP_03.12.2021_01.02.2022.csv";
+var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
 
 var prices = File
     .ReadAllLines(filename)
@@ -80,39 +81,47 @@ foreach (var p in prices)
     writer.Add(asset);
     writer.Add(currency);
     writer.Add(currency + (asset * price));
-    writer.Add(asset == 0 ? 0 : ep / asset, true);
+    writer.Add(asset == 0 ? string.Empty : (ep / asset).Ts(), true);
 }
 
 class Test
 {
     double _ep = 0d;
-    double _enter = double.NaN;    
+    double _enter = double.NaN;
+
+    double _minAssetPercOfBudget = 0.001;
+    double _initialBetPercOfBudget = 0.05;
+
+    double _maxEnterPriceDistance = 0.06;
+    double _powerMult = 0.02;
+    double _powerCap = 1;
+
+    double _targetExitPriceDistance = 0.03;
+    double _exitPowerMult = 1;
 
     public double GetSize(double price, double asset, double budget, double currency)
     {
-        var size = 0d;
-        if (double.IsNaN(_enter) || (asset * price) < budget * 0.001)
+        double size;
+        if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
         {
             // initial bet -> buy
-            size = budget * 0.01;
+            size = (budget * _initialBetPercOfBudget) / price;
         }
         else if (price < _enter)
         {
             // buy to lower enter price
             var dist = (_enter - price) / _enter;
-            if (dist > 0.01)
-            {
-                size = asset * dist * 0.35;
-            }
+            var norm = dist / _maxEnterPriceDistance;
+            var power = Math.Min(Math.Pow(norm, 4) * _powerMult, _powerCap);
+            size = asset * power;
         }
         else
         {
             // sell?
             var dist = (price - _enter) / _enter;
-            if (dist > 0.03)
-            {
-                size = -asset * dist * 0.9;
-            }
+            var norm = dist / _targetExitPriceDistance;
+            var power = Math.Min(Math.Pow(norm, 4) * _exitPowerMult, _powerCap);
+            size = -asset * power;
         }
 
         return size;
