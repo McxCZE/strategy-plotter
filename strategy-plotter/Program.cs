@@ -118,7 +118,7 @@ class Test
         else
         {
             // sell?
-            var dist = (price - _enter) / _enter;
+            var dist = (price - _enter) / price;
             var norm = dist / _targetExitPriceDistance;
             var power = Math.Pow(norm, 4) * _exitPowerMult;
             size = -asset * power;
