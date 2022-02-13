@@ -4,7 +4,7 @@ var random = new Random();
 
 //var filename = "FTX_DOGE-PERP_03.12.2020_03.12.2021.csv";
 //var filename = "FTX_DOGE-PERP_03.12.2021_01.02.2022.csv";
-var filename = "KUCOIN_BURP-USDT_10.02.2021_10.02.2022.csv";
+var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
 
 var prices = File
     .ReadAllLines(filename)
@@ -26,7 +26,7 @@ var trades = SpreadRunner.GenerateTrades(new MMBot.Api.dto.GenTradesRequest
     DynMult = true
 }, prices).ToDictionary(x => x.Time / 60000, x => x.Price);
 
-writer.WriteLine("price,trade,size,cost,asset,currency,equity,enter");
+writer.WriteLine("price,trade,size,cost,asset,currency,equity,enter,budget extra");
 
 var strategy = new Test();
 var ep = 0d;
@@ -34,35 +34,39 @@ var asset = 0d;
 const double budget = 10000d;
 var currency = budget;
 var index = 0;
+var reinvest = false;
+var budgetExtra = 0d;
 
 foreach (var p in prices)
 {
     var size = 0d;
     var price = p;
     var trade = trades.TryGetValue(index, out var genPrice);
+    var tradableCurrency = currency - budgetExtra;
+
     if (trade)
     {
         price = genPrice;
-        size = strategy.GetSize(price, asset, budget, currency);
+        size = strategy.GetSize(price, asset, budget, tradableCurrency);
     }
 
     index++;
     var cost = price * size;
-    if (cost > currency)
+    if (cost > tradableCurrency)
     {
-        cost = currency;
+        cost = tradableCurrency;
         size = cost / price;
-        currency = 0;
     }
     else if (-size > asset)
     {
         size = -asset;
         cost = price * size;
-        currency -= cost;
     }
-    else
+    currency -= cost;
+
+    if (!reinvest && currency > budget + budgetExtra)
     {
-        currency -= cost;
+        budgetExtra = currency - budget;
     }
 
     if (size != 0)
@@ -81,7 +85,8 @@ foreach (var p in prices)
     writer.Add(asset);
     writer.Add(currency);
     writer.Add(currency + (asset * price));
-    writer.Add(asset == 0 ? string.Empty : (ep / asset).Ts(), true);
+    writer.Add(asset == 0 ? string.Empty : (ep / asset).Ts());
+    writer.Add(budgetExtra, true);
 }
 
 class Test
