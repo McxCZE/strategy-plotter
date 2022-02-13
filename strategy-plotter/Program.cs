@@ -99,8 +99,6 @@ class Test
     double _targetExitPriceDistance = 0.03;
     double _exitPowerMult = 1;
 
-    double _realizeLossUnderPercOfBudget = 0.3;
-
     public double GetSize(double price, double asset, double budget, double currency)
     {
         double size;
@@ -108,15 +106,6 @@ class Test
         {
             // initial bet -> buy
             size = (budget * _initialBetPercOfBudget) / price;
-        }
-        else if (price < _enter && currency < budget * _realizeLossUnderPercOfBudget)
-        {
-            // realize loss to unblock trading
-            var dist = (_enter - price) / _enter;
-            var norm = dist / _maxEnterPriceDistance;
-            var rev = 1 - norm;
-            var power = Math.Min(Math.Pow(rev, 4) * _powerMult, _powerCap);
-            size = -asset * power;
         }
         else if (price < _enter)
         {
