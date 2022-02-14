@@ -16,11 +16,11 @@ using var writer = File.CreateText("out.csv");
 var trades = SpreadRunner.GenerateTrades(new MMBot.Api.dto.GenTradesRequest
 {
     BeginTime = 0,
-    Stdev = 95,
+    Stdev = 95.5,
     Sma = 2,
     Mult = 1,
     Mode = "Together",
-    Raise = 113,
+    Raise = 113.9,
     Fall = 1.6,
     Cap = 58,
     DynMult = true
@@ -95,14 +95,18 @@ class Test
     double _enter = double.NaN;
 
     double _minAssetPercOfBudget = 0.001;
-    double _initialBetPercOfBudget = 0.01;
+    double _initialBetPercOfBudget = 0.04;
 
-    double _maxEnterPriceDistance = 0.06;
-    double _powerMult = 0.02;
+    double _maxEnterPriceDistance = 0.05;
+    double _powerMult = 0.5;
     double _powerCap = 1;
 
-    double _targetExitPriceDistance = 0.03;
-    double _exitPowerMult = 1;
+    static double _angle = 41; //0-90; the higher, the less assets to buy
+    static double _angleRad = _angle * Math.PI / 180;
+    static double _sqrtTan = Math.Sqrt(Math.Tan(_angleRad));
+
+    double _targetExitPriceDistance = 0.04;
+    double _exitPowerMult = 6;
 
     public double GetSize(double price, double asset, double budget, double currency)
     {
@@ -115,10 +119,25 @@ class Test
         else if (price < _enter)
         {
             // buy to lower enter price
+
+            // https://www.desmos.com/calculator/na4ovcuavg
+            // https://www.desmos.com/calculator/rkw80qbgp3
+            // a: _ep
+            // b: price
+            // c: asset
+            // d: target angle
+            // x: size
+
+            // calculate recommended price based on preference of cost to reduction ratio
+            var cost = Math.Sqrt(_ep) / _sqrtTan;
+            var candidateSize = cost / price;
+
             var dist = (_enter - price) / _enter;
             var norm = dist / _maxEnterPriceDistance;
             var power = Math.Min(Math.Pow(norm, 4) * _powerMult, _powerCap);
-            size = asset * power;
+            var newSize = candidateSize * power;
+
+            return double.IsNaN(newSize) ? 0 : Math.Max(0, newSize);
         }
         else
         {
