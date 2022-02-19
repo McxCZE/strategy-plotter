@@ -127,6 +127,7 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
     var ep = 0d;
     var asset = 0d;
     const double budget = 10000d;
+    const double tradeFee = 0.007d;
     var currency = budget;
     var index = 0;
     var reinvest = false;
@@ -167,6 +168,7 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
             cost = price * size;
         }
         currency -= cost;
+        currency -= Math.Abs(cost * tradeFee);
 
         if (!reinvest && currency > budget + budgetExtra)
         {
