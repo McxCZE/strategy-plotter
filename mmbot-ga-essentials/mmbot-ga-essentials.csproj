@@ -1,20 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <RootNamespace>strategy_plotter</RootNamespace>
+    <RootNamespace>mmbot_ga_essentials</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="GeneticSharp" Version="2.6.0" />
+    <PackageReference Include="log4net" Version="2.0.14" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\mmbot-ga-essentials\mmbot-ga-essentials.csproj" />
-    <ProjectReference Include="..\mmbot-microport\mmbot-microport.csproj" />
+    <ProjectReference Include="..\MMBot.Api\MMBot.Api.csproj" />
   </ItemGroup>
 
 </Project>
