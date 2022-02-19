@@ -1,4 +1,5 @@
 ﻿record Trade(
+    long Time,
     double Price,
     double Size,
     double Cost,

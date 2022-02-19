@@ -21,6 +21,9 @@ void Ga<T,S>()
     where T : IStrategyPrototype<S>, new()
     where S : SpreadChromosome
 {
+    // todo: downloader, chunks
+    // todo: fitness max cost
+
     var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
 
     var prices = File
@@ -182,11 +185,11 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
 
         if (trade)
         {
-            simulatedTrades.Add(new Trade(price, size, cost, asset, currency, equity, budgetExtra));
+            simulatedTrades.Add(new Trade(index * 60000L, price, size, cost, asset, currency, equity, budgetExtra));
         }
     }
 
-    return strategy.Evaluate(simulatedTrades);
+    return strategy.Evaluate(simulatedTrades, budget);
 }
 
 class EnterPriceAngleStrategyChromosome : SpreadChromosome
@@ -323,15 +326,40 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
     public EnterPriceAngleStrategyChromosome GetAdamChromosome() => new();
 
-    public double Evaluate(IEnumerable<Trade> trades)
+    public double Evaluate(IEnumerable<Trade> trades, double budget)
     {
         var t = trades.ToList();
         if (!t.Any()) return 0;
 
-        return t.Last().BudgetExtra;
+        var maxLeveradge = 1 - (t.Min(x => x.Currency - x.BudgetExtra) / budget);
+        var factor = maxLeveradge < 0.75 ? 1 : Math.Pow(1.75 - maxLeveradge, 2);
+
+        return TradeCountFactor(t) * factor * t.Last().BudgetExtra;
     }
 
-    
+    private static double TradeCountFactor(ICollection<Trade> tr)
+    {
+        if (tr.Count < 2) return 0;
+        var last = tr.Last();
+        var first = tr.First();
+
+        var trades = tr.Count(x => x.Size != 0);
+        var alerts = 1 - (tr.Count - trades) / (double)tr.Count;
+
+        if (trades == 0 || alerts / trades > 0.02) return 0; //alerts / trades > 0.02
+
+        var days = (last.Time - first.Time) / 86400000d;
+        var tradesPerDay = trades / days;
+
+        const int mean = 18;
+        const int delta = 13; // target trade range is 5 - 31 trades per day
+
+        var x = Math.Abs(tradesPerDay - mean); // 0 - inf, 0 is best
+        var y = Math.Max(x - delta, 0) + 1; // 1 - inf, 1 is best ... 
+        var r = 1 / y;
+
+        return r * alerts;
+    }
 }
 
 class HalfHalf
