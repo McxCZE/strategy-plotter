@@ -16,6 +16,7 @@ using System.Text.Json;
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 Ga<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>();
+//StaticTest();
 
 void Ga<T,S>() 
     where T : IStrategyPrototype<S>, new()
@@ -130,11 +131,16 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
     var index = 0;
     var reinvest = false;
     var budgetExtra = 0d;
+    var lastPrice = 0d;
 
     foreach (var p in prices)
     {
         var size = 0d;
         var price = p;
+
+        var mode = Math.Sign(lastPrice - price); //-1 sell only; 1 buy only; 0 both
+        lastPrice = price;
+
         var trade = trades.TryGetValue(index, out var genPrice);
         var tradableCurrency = currency - budgetExtra;
 
@@ -142,6 +148,10 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
         {
             price = genPrice;
             size = strategy.GetSize(price, asset, budget, tradableCurrency);
+            if (mode != 0 && Math.Sign(size) != mode)
+            {
+                size = 0; // cannot execude order in opposite trend as a market maker
+            }
         }
 
         index++;
@@ -168,10 +178,10 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
             strategy.OnTrade(price, asset, size);
         }
 
-        var equity = currency + (asset * price);
         var newAsset = asset + size;
         ep = size >= 0 ? ep + cost : (ep / asset) * newAsset;
         asset = newAsset;
+        var equity = currency + (asset * price);
 
         writer?.Add(price);
         writer?.Add(trade ? price.Ts() : string.Empty);
@@ -264,8 +274,13 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
         }
         else if (price < _enter)
         {
-            // buy to lower enter price
+            // sell to reduce position
+            if (currency / price < asset)
+            {
+                return (((currency / price) + asset) * 0.5) - asset;
+            }
 
+            // buy to lower enter price
             // https://www.desmos.com/calculator/na4ovcuavg
             // https://www.desmos.com/calculator/rkw80qbgp3
             // a: _ep
@@ -331,8 +346,9 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
         var t = trades.ToList();
         if (!t.Any()) return 0;
 
-        var maxLeveradge = 1 - (t.Min(x => x.Currency - x.BudgetExtra) / budget);
-        var factor = maxLeveradge < 0.75 ? 1 : Math.Pow(1.75 - maxLeveradge, 2);
+        //var maxLeveradge = 1 - (t.Min(x => x.Currency - x.BudgetExtra) / budget);
+        //var factor = maxLeveradge < 0.75 ? 1 : Math.Pow(1.75 - maxLeveradge, 2);
+        var factor = 1;
 
         return TradeCountFactor(t) * factor * t.Last().BudgetExtra;
     }
