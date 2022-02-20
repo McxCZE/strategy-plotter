@@ -25,8 +25,8 @@ void Ga<T,S>()
     // todo: downloader, chunks
     // todo: fitness max cost
 
-    //var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
-    var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
+    var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
+    //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
 
     var prices = File
         .ReadAllLines(filename)
@@ -232,13 +232,13 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
     {
         InitialBetPercOfBudget = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5)); //0-1
 
-        MaxEnterPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 1));
+        MaxEnterPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
         PowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
         PowerCap = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
 
-        Angle = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 90));
+        Angle = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 70)); //0-90
 
-        TargetExitPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 1));
+        TargetExitPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
         ExitPowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
 
         FinalizeGenes();
@@ -371,7 +371,8 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
         if (!t.Any()) return 0;
 
         // continuity -> stable performance and delivery of budget extra
-        var frames = 10;
+        // get profit at least every 14 days
+        var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 20);
         var gk = timeFrame / frames;
         var lastBudgetExtra = 0d;
         var minFitness = double.MaxValue;
