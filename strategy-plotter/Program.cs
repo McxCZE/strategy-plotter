@@ -25,7 +25,8 @@ void Ga<T,S>()
     // todo: downloader, chunks
     // todo: fitness max cost
 
-    var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
+    //var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
+    var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
 
     var prices = File
         .ReadAllLines(filename)
@@ -61,10 +62,31 @@ void Ga<T,S>()
             Console.WriteLine($"New best ({ga.GenerationsNumber}): {best.Fitness}");
             Console.WriteLine();
 
-            using var writer = File.CreateText(Path.Combine(directory, $"out-{ga.GenerationsNumber:0000}.csv"));
-            Evaluate<S>(prices, best.ToRequest(), strategy.CreateInstance(best), writer);
-            File.WriteAllText(Path.Combine(directory, $"cfg-{ga.GenerationsNumber:0000}.json"), 
-                JsonSerializer.Serialize(best, new JsonSerializerOptions { WriteIndented = true }));
+            var outCsv = Path.Combine(directory, "out-best.csv");
+            var outJson = Path.Combine(directory, "cfg-best.json");
+
+            while (true)
+            {
+                try
+                {
+                    using (var writer = File.CreateText(outCsv))
+                    {
+                        Evaluate<S>(prices, best.ToRequest(), strategy.CreateInstance(best), writer);
+                    }
+                    File.WriteAllText(outJson,
+                        JsonSerializer.Serialize(best, new JsonSerializerOptions { WriteIndented = true }));
+
+                    File.Copy(outCsv, Path.Combine(directory, $"out-{ga.GenerationsNumber:0000}.csv"), true);
+                    File.Copy(outJson, Path.Combine(directory, $"cfg-{ga.GenerationsNumber:0000}.json"), true);
+                    break;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    Console.WriteLine();
+                    Thread.Sleep(2000);
+                }
+            }
         }
         else
         {
@@ -201,14 +223,14 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
         }
     }
 
-    return strategy.Evaluate(simulatedTrades, budget);
+    return strategy.Evaluate(simulatedTrades, budget, prices.Count * 60000L);
 }
 
 class EnterPriceAngleStrategyChromosome : SpreadChromosome
 {
     public EnterPriceAngleStrategyChromosome() : base(false)
     {
-        InitialBetPercOfBudget = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 1));
+        InitialBetPercOfBudget = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5)); //0-1
 
         MaxEnterPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 1));
         PowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
@@ -343,16 +365,38 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
     public EnterPriceAngleStrategyChromosome GetAdamChromosome() => new();
 
-    public double Evaluate(IEnumerable<Trade> trades, double budget)
+    public double Evaluate(IEnumerable<Trade> trades, double budget, long timeFrame)
     {
         var t = trades.ToList();
         if (!t.Any()) return 0;
 
-        //var maxLeveradge = 1 - (t.Min(x => x.Currency - x.BudgetExtra) / budget);
-        //var factor = maxLeveradge < 0.75 ? 1 : Math.Pow(1.75 - maxLeveradge, 2);
-        var factor = 1;
+        // continuity -> stable performance and delivery of budget extra
+        var frames = 10;
+        var gk = timeFrame / frames;
+        var lastBudgetExtra = 0d;
+        var minFitness = double.MaxValue;
 
-        return TradeCountFactor(t) * factor * t.Last().BudgetExtra;
+        for (var i = 0; i < frames; i++)
+        {
+            var f0 = gk * i;
+            var f1 = gk * (i + 1);
+            var frameTrades = t
+                .SkipWhile(x => x.Time < f0)
+                .TakeWhile(x => x.Time < f1)
+                .ToList();
+
+            var currentBudgetExtra = frameTrades.LastOrDefault()?.BudgetExtra ?? lastBudgetExtra;
+            var tradeFactor = TradeCountFactor(frameTrades);
+            var fitness = tradeFactor * (currentBudgetExtra - lastBudgetExtra);
+            if (fitness < minFitness)
+            {
+                minFitness = fitness;
+            }
+            lastBudgetExtra = currentBudgetExtra;
+        }
+
+        return minFitness;
+        //return factor * t.Last().BudgetExtra;
     }
 
     private static double TradeCountFactor(ICollection<Trade> tr)
@@ -362,9 +406,9 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
         var first = tr.First();
 
         var trades = tr.Count(x => x.Size != 0);
-        var alerts = 1 - (tr.Count - trades) / (double)tr.Count;
+        var alerts = tr.Count - trades;
 
-        if (trades == 0 || alerts / trades > 0.02) return 0; //alerts / trades > 0.02
+        if (trades == 0) return 0;
 
         var days = (last.Time - first.Time) / 86400000d;
         var tradesPerDay = trades / days;
@@ -376,7 +420,8 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
         var y = Math.Max(x - delta, 0) + 1; // 1 - inf, 1 is best ... 
         var r = 1 / y;
 
-        return r * alerts;
+        var alertsFactor = Math.Pow(1 - (alerts / (double)tr.Count), 5);
+        return r * alertsFactor;
     }
 }
 
