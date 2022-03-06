@@ -25,7 +25,7 @@ void Ga<T,S>()
     // todo: downloader, chunks
     // todo: fitness max cost
 
-    var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
+    var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022.csv";
     //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
 
     var prices = File
@@ -111,7 +111,7 @@ void StaticTest()
 {
     //var filename = "FTX_DOGE-PERP_03.12.2020_03.12.2021.csv";
     //var filename = "FTX_DOGE-PERP_03.12.2021_01.02.2022.csv";
-    var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022-cut.csv";
+    var filename = "KUCOIN_XRP-USDT_01.01.2021_22.02.2022.csv";
 
     var prices = File
         .ReadAllLines(filename)
@@ -125,14 +125,14 @@ void StaticTest()
     var genTrades = new GenTradesRequest
     {
         BeginTime = 0,
-        Stdev = 95.5,
-        Sma = 2,
-        Mult = 1,
-        Mode = "Together",
-        Raise = 113.9,
-        Fall = 1.6,
-        Cap = 58,
-        DynMult = true
+        Stdev = 167,
+        Sma = 57.279,
+        Mult = 0.673,
+        Mode = "Independent",
+        Raise = 273.647,
+        Fall = 9.609,
+        Cap = 87.125,
+        DynMult = false
     };
 
     Evaluate(prices, genTrades, strategy, writer);
@@ -149,7 +149,9 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
     var ep = 0d;
     var asset = 0d;
     const double budget = 10000d;
-    const double tradeFee = 0.007d;
+    const double tradeFee = 0.001d; // 0.007
+    const double tradeRebate = 0; // 0.00025d;
+    const double minOrderCost = 2d;
     var currency = budget;
     var index = 0;
     var reinvest = false;
@@ -179,6 +181,13 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
 
         index++;
         var cost = price * size;
+
+        if (Math.Abs(cost) < minOrderCost)
+        {
+            cost = minOrderCost * Math.Sign(cost);
+            size = cost / price;
+        }
+
         if (cost > tradableCurrency)
         {
             cost = tradableCurrency;
@@ -191,6 +200,7 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
         }
         currency -= cost;
         currency -= Math.Abs(cost * tradeFee);
+        currency += Math.Abs(cost * tradeRebate);
 
         if (!reinvest && currency > budget + budgetExtra)
         {
@@ -230,7 +240,7 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
 {
     public EnterPriceAngleStrategyChromosome() : base(false)
     {
-        InitialBetPercOfBudget = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5)); //0-1
+        InitialBetPercOfBudget = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 1)); //0-1
 
         MaxEnterPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
         PowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
@@ -264,11 +274,11 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
     double _enter = double.NaN;
 
     double _minAssetPercOfBudget = 0.001;
-    double _initialBetPercOfBudget = 0.04;
+    double _initialBetPercOfBudget = 0.03;
 
-    double _maxEnterPriceDistance = 0.05;
-    double _powerMult = 0.5;
-    double _powerCap = 1;
+    double _maxEnterPriceDistance = 0.043;
+    double _powerMult = 5.1;
+    double _powerCap = 9;
 
     double _angle //0-90; the higher, the less assets to buy
     {
@@ -285,7 +295,7 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
     public EnterPriceAngleStrategy()
     {
-        _angle = 41;
+        _angle = 0.133838;
     }
 
     public double GetSize(double price, double asset, double budget, double currency)
@@ -372,7 +382,7 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
         // continuity -> stable performance and delivery of budget extra
         // get profit at least every 14 days
-        var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 20);
+        var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 25);
         var gk = timeFrame / frames;
         var lastBudgetExtra = 0d;
         var minFitness = double.MaxValue;
@@ -387,7 +397,7 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
                 .ToList();
 
             var currentBudgetExtra = frameTrades.LastOrDefault()?.BudgetExtra ?? lastBudgetExtra;
-            var tradeFactor = TradeCountFactor(frameTrades);
+            var tradeFactor = 1; // TradeCountFactor(frameTrades);
             var fitness = tradeFactor * (currentBudgetExtra - lastBudgetExtra);
             if (fitness < minFitness)
             {
