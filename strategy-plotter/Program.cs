@@ -9,9 +9,12 @@ using GeneticSharp.Domain.Terminations;
 using MMBot.Api.dto;
 using MMBotGA.ga;
 using MMBotGA.ga.execution;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
@@ -25,13 +28,15 @@ void Ga<T,S>()
     // todo: downloader, chunks
     // todo: fitness max cost
 
-    var filename = "KUCOIN_HTR-USDT_10.02.2021_10.02.2022.csv";
+    var filename = "KUCOIN_HTR-USDT_01.04.2021_01.04.2022.csv";
+    //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
+    //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
     //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
 
     var prices = File
         .ReadAllLines(filename)
         .Where(x => !string.IsNullOrWhiteSpace(x))
-        .Select(x => double.Parse(x, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture))
+        .Select(x => double.Parse(x.Split(',')[0], NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture))
         .ToList();
 
     var strategy = new T();
@@ -49,7 +54,7 @@ void Ga<T,S>()
         TaskExecutor = executor
     };
 
-    var directory = GetDirectory();
+    var directory = GetDirectory("-HTR-USDT-7k");
 
     S best = null;
     void OnGenerationRan(object o, EventArgs eventArgs)
@@ -64,6 +69,7 @@ void Ga<T,S>()
 
             var outCsv = Path.Combine(directory, "out-best.csv");
             var outJson = Path.Combine(directory, "cfg-best.json");
+            var outBase64 = Path.Combine(directory, "base64-best.json");
 
             while (true)
             {
@@ -75,9 +81,12 @@ void Ga<T,S>()
                     }
                     File.WriteAllText(outJson,
                         JsonSerializer.Serialize(best, new JsonSerializerOptions { WriteIndented = true }));
+                    File.WriteAllText(outBase64,
+                        "{{" + Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(best.ToConfig(), new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }))) + "}}");
 
                     File.Copy(outCsv, Path.Combine(directory, $"out-{ga.GenerationsNumber:0000}.csv"), true);
                     File.Copy(outJson, Path.Combine(directory, $"cfg-{ga.GenerationsNumber:0000}.json"), true);
+                    File.Copy(outBase64, Path.Combine(directory, $"base64-{ga.GenerationsNumber:0000}.json"), true);
                     break;
                 }
                 catch (Exception e)
@@ -99,9 +108,9 @@ void Ga<T,S>()
     ga.GenerationRan -= OnGenerationRan;
 }
 
-static string GetDirectory()
+static string GetDirectory(string suffix)
 { 
-    var dir = Path.Combine("results", DateTime.Now.ToString("s").Replace(':', '.'));
+    var dir = Path.Combine("results", DateTime.Now.ToString("s").Replace(':', '.') + suffix);
     var directory = new DirectoryInfo(dir);
     if (!directory.Exists) directory.Create();
     return directory.FullName;
@@ -110,13 +119,14 @@ static string GetDirectory()
 void StaticTest()
 {
     //var filename = "FTX_DOGE-PERP_03.12.2020_03.12.2021.csv";
-    //var filename = "FTX_DOGE-PERP_03.12.2021_01.02.2022.csv";
-    var filename = "KUCOIN_XRP-USDT_01.01.2021_22.02.2022.csv";
+    var filename = "KUCOIN_XDB-USDT_01.04.2021_01.04.2022.csv";
+    //var filename = "KUCOIN_HTR-USDT_01.01.2020_01.04.2022.csv";
+    //var filename = "KUCOIN_FLUX-USDT_01.01.2021_06.03.2022.csv";
 
     var prices = File
         .ReadAllLines(filename)
         .Where(x => !string.IsNullOrWhiteSpace(x))
-        .Select(x => double.Parse(x, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture))
+        .Select(x => double.Parse(x.Split(',')[0], NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture))
         .ToList();
     using var writer = File.CreateText("out.csv");
 
@@ -125,54 +135,82 @@ void StaticTest()
     var genTrades = new GenTradesRequest
     {
         BeginTime = 0,
-        Stdev = 167,
-        Sma = 57.279,
-        Mult = 0.673,
-        Mode = "Independent",
-        Raise = 273.647,
-        Fall = 9.609,
-        Cap = 87.125,
-        DynMult = false
+        Stdev = 238.6920513836667,
+        Sma = 20.29968843050301,
+        Mult = 0.6610092297196388,
+        Mode = "Together",
+        Raise = 61.17793273227289,
+        Fall = 6.3417955216486,
+        Cap = 2.8303833678364754,
+        DynMult = true,
+        SpreadFreeze = true,
+        Sliding = false
     };
 
+    var sw = new Stopwatch();
+    sw.Restart();
     Evaluate(prices, genTrades, strategy, writer);
+    sw.Stop();
+    Console.WriteLine($"Done in {sw.ElapsedMilliseconds} ms");
 }
 
 double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStrategyPrototype<T> strategy, StreamWriter writer)
     where T : SpreadChromosome
 {
-    var trades = SpreadRunner.GenerateTrades(genTrades, prices).ToDictionary(x => x.Time / 60000, x => x.Price);
-
-    writer?.WriteLine("price,trade,size,cost,asset,currency,equity,enter,budget extra");
+    writer?.WriteLine("price,hspread,lspread,trade,size,cost,asset,currency,equity,enter,center,budget extra");
 
     var simulatedTrades = new List<Trade>();
     var ep = 0d;
     var asset = 0d;
-    const double budget = 10000d;
-    const double tradeFee = 0.001d; // 0.007
+
+    // BTC
+    //const double budget = 0.1d;
+    //const double minOrderCost = 0.00000001d;
+    //const double fixedTradeFee = 0.0000002174d;
+
+    // USD
+    const double budget = 7000d;
+    const double minOrderCost = 10d;
+    const double fixedTradeFee = 0.01d;
+
+    const double tradeFee = 0.002d; // 0.007
     const double tradeRebate = 0; // 0.00025d;
-    const double minOrderCost = 2d;
+    
     var currency = budget;
     var index = 0;
     var reinvest = false;
     var budgetExtra = 0d;
     var lastPrice = 0d;
+    var tradableCurrency = 0d;
+    var callback = new DynamicStrategyCallback(
+        (price, dir) => strategy.GetSize(price, dir, asset, budget, tradableCurrency),
+        price => strategy.GetCenterPrice(price, asset, budget, tradableCurrency)
+        );
+    var simulator = new Simulator(genTrades, callback, 0);
 
-    foreach (var p in prices)
+    //warmup spread
+    foreach (var p in prices.Take((int)TimeSpan.FromHours(Math.Max(genTrades.Stdev, genTrades.Sma)).TotalMinutes))
     {
+        simulator.Tick(p, true);
+    }
+
+    foreach (var p in prices) //todo rev ... not needed for now
+    {
+        tradableCurrency = currency - budgetExtra;
+        var t = simulator.Tick(p, false);
         var size = 0d;
-        var price = p;
+        var price = t.Spread.Price;
 
         var mode = Math.Sign(lastPrice - price); //-1 sell only; 1 buy only; 0 both
         lastPrice = price;
 
-        var trade = trades.TryGetValue(index, out var genPrice);
-        var tradableCurrency = currency - budgetExtra;
+        var trade = t.trade != null;
+        var genPrice = trade ? t.trade.Price : 0;
 
         if (trade)
         {
             price = genPrice;
-            size = strategy.GetSize(price, asset, budget, tradableCurrency);
+            size = strategy.GetSize(price, mode, asset, budget, tradableCurrency);
             if (mode != 0 && Math.Sign(size) != mode)
             {
                 size = 0; // cannot execude order in opposite trend as a market maker
@@ -198,9 +236,17 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
             size = -asset;
             cost = price * size;
         }
+
+        if (Math.Abs(cost) < minOrderCost)
+        {
+            size = 0;
+            cost = 0;
+        }
+
         currency -= cost;
         currency -= Math.Abs(cost * tradeFee);
         currency += Math.Abs(cost * tradeRebate);
+        if (size != 0) currency -= fixedTradeFee;
 
         if (!reinvest && currency > budget + budgetExtra)
         {
@@ -218,6 +264,8 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
         var equity = currency + (asset * price);
 
         writer?.Add(price);
+        writer?.Add(t.Spread.Spread.High);
+        writer?.Add(t.Spread.Spread.Low);
         writer?.Add(trade ? price.Ts() : string.Empty);
         writer?.Add(size);
         writer?.Add(cost);
@@ -225,6 +273,7 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
         writer?.Add(currency);
         writer?.Add(equity);
         writer?.Add(asset == 0 ? string.Empty : (ep / asset).Ts());
+        writer?.Add(callback.GetCenterPrice(price));
         writer?.Add(budgetExtra, true);
 
         if (trade)
@@ -250,6 +299,9 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
 
         TargetExitPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
         ExitPowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
+        CurrencyExitFactor = Factory.Create(0d); // Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
+
+        ReductionMidpoint = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 0.9)); //Factory.Create(0.6d);
 
         FinalizeGenes();
     }
@@ -264,8 +316,32 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
 
     public GeneWrapper<double> TargetExitPriceDistance { get; }
     public GeneWrapper<double> ExitPowerMult { get; }
+    public GeneWrapper<double> CurrencyExitFactor { get; }
+
+    public GeneWrapper<double> ReductionMidpoint { get; }
 
     public override IChromosome CreateNew() => new EnterPriceAngleStrategyChromosome();
+
+    public override Config ToConfig()
+    {
+        var res = base.ToConfig();
+        res.Strategy = new EpaStrategyConfig
+        {
+            Type = "enter_price_angle",
+            Angle = Angle,
+            ExitPowerMult = ExitPowerMult,
+            InitialBetPercOfBudget = InitialBetPercOfBudget,
+            MaxEnterPriceDistance = MaxEnterPriceDistance,
+            MinAssetPercOfBudget = 0.001,
+            PowerCap = PowerCap,
+            PowerMult = PowerMult,
+            TargetExitPriceDistance = TargetExitPriceDistance,
+            ReductionMidpoint = ReductionMidpoint,      
+            CurrencyExitFactor = CurrencyExitFactor,
+            Backtest = false
+        };
+        return res;
+    }
 }
 
 class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromosome>
@@ -274,11 +350,11 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
     double _enter = double.NaN;
 
     double _minAssetPercOfBudget = 0.001;
-    double _initialBetPercOfBudget = 0.03;
+    double _initialBetPercOfBudget = 0.00972788780927658;
 
-    double _maxEnterPriceDistance = 0.043;
-    double _powerMult = 5.1;
-    double _powerCap = 9;
+    double _maxEnterPriceDistance = 0.005408694734796882;
+    double _powerMult = 7.437917161732912;
+    double _powerCap = 8.70842173229903;
 
     double _angle //0-90; the higher, the less assets to buy
     {
@@ -290,28 +366,39 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
     }
     double _sqrtTan;
 
-    double _targetExitPriceDistance = 0.04;
-    double _exitPowerMult = 6;
+    double _targetExitPriceDistance = 0.015694422647356987;
+    double _exitPowerMult = 6.586619149893522;
+    double _currencyExitFactor = 0d;
+
+    double _reductionMidpoint = 0.7729685984551907;
 
     public EnterPriceAngleStrategy()
     {
-        _angle = 0.133838;
+        _angle = 10.999484225176275;
     }
 
-    public double GetSize(double price, double asset, double budget, double currency)
+    public double GetSize(double price, double dir, double asset, double budget, double currency)
     {
         double size;
         if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
         {
             // initial bet -> buy
-            size = (budget * _initialBetPercOfBudget) / price;
+            size = (currency * _initialBetPercOfBudget) / price;
+
+            // need to indicate sell in case the price grows, but we need to buy
+            if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
         }
         else if (price < _enter)
         {
+            //currency / price # buy power
+
+            var half = ((currency / price) + asset) * _reductionMidpoint;
+            var hhSize = half - asset;
+
             // sell to reduce position
-            if (currency / price < asset)
+            if (half < asset)
             {
-                return (((currency / price) + asset) * 0.5) - asset;
+                return hhSize;
             }
 
             // buy to lower enter price
@@ -332,18 +419,29 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
             var power = Math.Min(Math.Pow(norm, 4) * _powerMult, _powerCap);
             var newSize = candidateSize * power;
 
-            return double.IsNaN(newSize) ? 0 : Math.Max(0, newSize);
+            return double.IsNaN(newSize) ? 0 : Math.Max(0, Math.Min(hhSize, newSize));
         }
         else
         {
             // sell?
+            var currencyFactor = (currency / budget) * _currencyExitFactor;
             var dist = (price - _enter) / price;
-            var norm = dist / _targetExitPriceDistance;
+            var norm = dist / (_targetExitPriceDistance + currencyFactor);
             var power = Math.Pow(norm, 4) * _exitPowerMult;
             size = -asset * power;
         }
 
         return size;
+    }
+
+    public double GetCenterPrice(double price, double asset, double budget, double currency)
+    {
+        if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
+        {
+            return price;
+        }
+
+        return Math.Min(_enter, currency * _reductionMidpoint / asset / (1-_reductionMidpoint));
     }
 
     public void OnTrade(double price, double asset, double size)
@@ -369,7 +467,10 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
             _angle = chromosome.Angle,
 
             _targetExitPriceDistance = chromosome.TargetExitPriceDistance,
-            _exitPowerMult = chromosome.ExitPowerMult
+            _exitPowerMult = chromosome.ExitPowerMult,
+            _currencyExitFactor = chromosome.CurrencyExitFactor,
+
+            _reductionMidpoint = chromosome.ReductionMidpoint
         };
     }
 
@@ -445,4 +546,43 @@ class HalfHalf
 
     public void OnTrade(double price, double size)
     { }
+}
+
+public class EpaStrategyConfig
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; }
+
+    [JsonPropertyName("exit_power_mult")]
+    public double ExitPowerMult { get; set; }
+
+    [JsonPropertyName("initial_bet_perc_of_budget")]
+    public double InitialBetPercOfBudget { get; set; }
+
+    [JsonPropertyName("max_enter_price_distance")]
+    public double MaxEnterPriceDistance { get; set; }
+
+    [JsonPropertyName("min_asset_perc_of_budget")]
+    public double MinAssetPercOfBudget { get; set; }
+
+    [JsonPropertyName("power_cap")]
+    public double PowerCap { get; set; }
+
+    [JsonPropertyName("power_mult")]
+    public double PowerMult { get; set; }
+
+    [JsonPropertyName("target_exit_price_distance")]
+    public double TargetExitPriceDistance { get; set; }
+
+    [JsonPropertyName("currency_exit_factor")]
+    public double CurrencyExitFactor { get; set; }
+
+    [JsonPropertyName("angle")]
+    public double Angle { get; set; }
+
+    [JsonPropertyName("reduction_midpoint")]
+    public double ReductionMidpoint { get; set; }
+
+    [JsonPropertyName("backtest")]
+    public bool Backtest { get; set; }
 }

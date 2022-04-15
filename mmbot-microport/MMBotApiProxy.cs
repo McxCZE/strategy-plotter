@@ -160,7 +160,7 @@ public class MMBotApiProxy : IMMBotApi
             MaxLeverage = request.Config.MaxLeverage,
             ReduceOnLeverage = request.Config.ReduceOnLeverage,
             //TradeWithinBudget,
-            Strategy = StrategyFactory.Create(request.Config.Strategy.Type, JsonSerializer.Serialize(request.Config.Strategy))
+            //Strategy = StrategyFactory.Create(request.Config.Strategy.Type, JsonSerializer.Serialize(request.Config.Strategy))
         };
 
         var (success, value) = _data.Get(request.Source);

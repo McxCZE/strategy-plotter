@@ -82,6 +82,28 @@ namespace MMBotGA.ga
             };
         }
 
+        public virtual Config ToConfig()
+        {
+            return new Config
+            {
+                Enabled = true,
+                AdjTimeout = 5,
+
+                SpreadCalcSmaHours = Sma,
+                SpreadCalcStdevHours = Stdev,
+                DynmultMode = Mode,
+                DynmultSliding = false,
+                SpreadFreeze = Freeze,
+                DynmultMult = DynMult,
+                DynmultRaise = Raise,
+                DynmultFall = Fall,
+                DynmultCap = Cap,
+                SellStepMult = Mult,
+                BuyStepMult = Mult,
+                //SecondaryOrder = 50,
+            };
+        }
+
         public override Gene GenerateGene(int geneIndex) => Factory.Generate(geneIndex);
     }
 }

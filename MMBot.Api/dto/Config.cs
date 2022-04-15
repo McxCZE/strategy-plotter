@@ -5,7 +5,7 @@ namespace MMBot.Api.dto
     public class Config
     {
         [JsonPropertyName("strategy")]
-        public Strategy Strategy { get; set; }
+        public object Strategy { get; set; }
 
         [JsonPropertyName("broker")]
         public string Broker { get; set; }
