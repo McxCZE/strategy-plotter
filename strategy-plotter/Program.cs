@@ -299,9 +299,11 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
 
         TargetExitPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
         ExitPowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
-        CurrencyExitFactor = Factory.Create(0d); // Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
 
         ReductionMidpoint = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 0.9)); //Factory.Create(0.6d);
+
+        DipRescuePercOfBudget = Factory.Create(0d); //0.5 - 1
+        DipRescueEnterPriceDistance = Factory.Create(0.2d); //0.2 - 2
 
         FinalizeGenes();
     }
@@ -316,9 +318,11 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
 
     public GeneWrapper<double> TargetExitPriceDistance { get; }
     public GeneWrapper<double> ExitPowerMult { get; }
-    public GeneWrapper<double> CurrencyExitFactor { get; }
 
     public GeneWrapper<double> ReductionMidpoint { get; }
+
+    public GeneWrapper<double> DipRescuePercOfBudget { get; }
+    public GeneWrapper<double> DipRescueEnterPriceDistance { get; }
 
     public override IChromosome CreateNew() => new EnterPriceAngleStrategyChromosome();
 
@@ -336,8 +340,9 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
             PowerCap = PowerCap,
             PowerMult = PowerMult,
             TargetExitPriceDistance = TargetExitPriceDistance,
-            ReductionMidpoint = ReductionMidpoint,      
-            CurrencyExitFactor = CurrencyExitFactor,
+            ReductionMidpoint = ReductionMidpoint,
+            DipRescuePercOfBudget = DipRescuePercOfBudget,
+            DipRescueEnterPriceDistance = DipRescueEnterPriceDistance,
             Backtest = false
         };
         return res;
@@ -346,9 +351,11 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
 
 class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromosome>
 {
+    // State
     double _ep = 0d;
     double _enter = double.NaN;
 
+    // Settings
     double _minAssetPercOfBudget = 0.001;
     double _initialBetPercOfBudget = 0.00972788780927658;
 
@@ -368,9 +375,11 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
     double _targetExitPriceDistance = 0.015694422647356987;
     double _exitPowerMult = 6.586619149893522;
-    double _currencyExitFactor = 0d;
 
     double _reductionMidpoint = 0.7729685984551907;
+
+    double _dipRescuePercOfBudget = 0.5; //0.5 - 1
+    double _dipRescueEnterPriceDistance = 0.10; //0.2 - 2
 
     public EnterPriceAngleStrategy()
     {
@@ -379,20 +388,28 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
     public double GetSize(double price, double dir, double asset, double budget, double currency)
     {
+        var availableCurrency = Math.Max(0, currency - (budget * _dipRescuePercOfBudget));
+
         double size;
         if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
         {
             // initial bet -> buy
-            size = (currency * _initialBetPercOfBudget) / price;
+            size = (availableCurrency * _initialBetPercOfBudget) / price;
 
             // need to indicate sell in case the price grows, but we need to buy
             if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
         }
         else if (price < _enter)
         {
-            //currency / price # buy power
+            var dist = (_enter - price) / _enter;
+            if (dist >= _dipRescueEnterPriceDistance)
+            {
+                // Unblock full currency
+                availableCurrency = currency;
+            }
 
-            var half = ((currency / price) + asset) * _reductionMidpoint;
+            //currency / price # buy power
+            var half = ((availableCurrency / price) + asset) * _reductionMidpoint;
             var hhSize = half - asset;
 
             // sell to reduce position
@@ -414,7 +431,6 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
             var cost = Math.Sqrt(_ep) / _sqrtTan;
             var candidateSize = cost / price;
 
-            var dist = (_enter - price) / _enter;
             var norm = dist / _maxEnterPriceDistance;
             var power = Math.Min(Math.Pow(norm, 4) * _powerMult, _powerCap);
             var newSize = candidateSize * power;
@@ -424,9 +440,8 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
         else
         {
             // sell?
-            var currencyFactor = (currency / budget) * _currencyExitFactor;
             var dist = (price - _enter) / price;
-            var norm = dist / (_targetExitPriceDistance + currencyFactor);
+            var norm = dist / _targetExitPriceDistance;
             var power = Math.Pow(norm, 4) * _exitPowerMult;
             size = -asset * power;
         }
@@ -441,7 +456,15 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
             return price;
         }
 
-        return Math.Min(_enter, currency * _reductionMidpoint / asset / (1-_reductionMidpoint));
+        var availableCurrency = Math.Max(0, currency - (budget * _dipRescuePercOfBudget));
+        var dist = (_enter - price) / _enter;
+        if (dist >= _dipRescueEnterPriceDistance)
+        {
+            // Unblock full currency
+            availableCurrency = currency;
+        }
+
+        return Math.Min(_enter, availableCurrency * _reductionMidpoint / asset / (1-_reductionMidpoint));
     }
 
     public void OnTrade(double price, double asset, double size)
@@ -468,9 +491,11 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
             _targetExitPriceDistance = chromosome.TargetExitPriceDistance,
             _exitPowerMult = chromosome.ExitPowerMult,
-            _currencyExitFactor = chromosome.CurrencyExitFactor,
 
-            _reductionMidpoint = chromosome.ReductionMidpoint
+            _reductionMidpoint = chromosome.ReductionMidpoint,
+
+            _dipRescuePercOfBudget = chromosome.DipRescuePercOfBudget,
+            _dipRescueEnterPriceDistance = chromosome.DipRescueEnterPriceDistance,
         };
     }
 
@@ -574,14 +599,17 @@ public class EpaStrategyConfig
     [JsonPropertyName("target_exit_price_distance")]
     public double TargetExitPriceDistance { get; set; }
 
-    [JsonPropertyName("currency_exit_factor")]
-    public double CurrencyExitFactor { get; set; }
-
     [JsonPropertyName("angle")]
     public double Angle { get; set; }
 
     [JsonPropertyName("reduction_midpoint")]
     public double ReductionMidpoint { get; set; }
+
+    [JsonPropertyName("dip_rescue_perc_of_budget")]
+    public double DipRescuePercOfBudget { get; set; }
+
+    [JsonPropertyName("dip_rescue_enter_price_distance")]
+    public double DipRescueEnterPriceDistance { get; set; }
 
     [JsonPropertyName("backtest")]
     public bool Backtest { get; set; }
