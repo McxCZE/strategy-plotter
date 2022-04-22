@@ -1,17 +1,16 @@
-﻿#define GA
-#define BTC
+﻿#define Static
+#define USD
 
 using GeneticSharp.Domain;
-using GeneticSharp.Domain.Chromosomes;
 using GeneticSharp.Domain.Crossovers;
 using GeneticSharp.Domain.Mutations;
 using GeneticSharp.Domain.Populations;
-using GeneticSharp.Domain.Randomizations;
 using GeneticSharp.Domain.Selections;
 using GeneticSharp.Domain.Terminations;
 using MMBot.Api.dto;
 using MMBotGA.ga;
 using MMBotGA.ga.execution;
+using strategy_plotter.Epa;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -21,11 +20,13 @@ using System.Text.Json.Serialization;
 
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
-#region Source data
+#region GA data
 var filename = "KUCOIN_HTR-USDT_01.04.2021_01.04.2022.csv";
 //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
 //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
 //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
+
+var outputSuffix = "-HTR-USDT-7k";
 #endregion
 
 #region Configuration for static test
@@ -86,7 +87,7 @@ void Ga<T,S>()
         TaskExecutor = executor
     };
 
-    var directory = GetDirectory("-HTR-USDT-7k");
+    var directory = GetDirectory(outputSuffix);
 
     S best = null;
     void OnGenerationRan(object o, EventArgs eventArgs)
@@ -287,364 +288,4 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
     }
 
     return strategy.Evaluate(simulatedTrades, budget, prices.Count * 60000L);
-}
-
-class EnterPriceAngleStrategyChromosome : SpreadChromosome
-{
-    public EnterPriceAngleStrategyChromosome() : base(false)
-    {
-        InitialBetPercOfBudget = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 1)); //0-1
-
-        MaxEnterPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
-        PowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
-        PowerCap = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
-
-        Angle = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 70)); //0-90
-
-        TargetExitPriceDistance = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 0.5));
-        ExitPowerMult = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 10));
-
-        ReductionMidpoint = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 0.9)); //Factory.Create(0.6d);
-
-        DipRescuePercOfBudget = Factory.Create(0d); //0.5 - 1
-        DipRescueEnterPriceDistance = Factory.Create(0.2d); //0.2 - 2
-
-        FinalizeGenes();
-    }
-
-    public GeneWrapper<double> InitialBetPercOfBudget { get; }
-
-    public GeneWrapper<double> MaxEnterPriceDistance { get; }
-    public GeneWrapper<double> PowerMult { get; }
-    public GeneWrapper<double> PowerCap { get; }
-
-    public GeneWrapper<double> Angle { get; }
-
-    public GeneWrapper<double> TargetExitPriceDistance { get; }
-    public GeneWrapper<double> ExitPowerMult { get; }
-
-    public GeneWrapper<double> ReductionMidpoint { get; }
-
-    public GeneWrapper<double> DipRescuePercOfBudget { get; }
-    public GeneWrapper<double> DipRescueEnterPriceDistance { get; }
-
-    public override IChromosome CreateNew() => new EnterPriceAngleStrategyChromosome();
-
-    public override Config ToConfig()
-    {
-        var res = base.ToConfig();
-        res.Strategy = new EpaStrategyConfig
-        {
-            Type = "enter_price_angle",
-            Angle = Angle,
-            ExitPowerMult = ExitPowerMult,
-            InitialBetPercOfBudget = InitialBetPercOfBudget,
-            MaxEnterPriceDistance = MaxEnterPriceDistance,
-            MinAssetPercOfBudget = 0.001,
-            PowerCap = PowerCap,
-            PowerMult = PowerMult,
-            TargetExitPriceDistance = TargetExitPriceDistance,
-            ReductionMidpoint = ReductionMidpoint,
-            DipRescuePercOfBudget = DipRescuePercOfBudget,
-            DipRescueEnterPriceDistance = DipRescueEnterPriceDistance,
-            Backtest = false
-        };
-        return res;
-    }
-
-    public override void FromConfig(Config config)
-    {
-        base.FromConfig(config);
-
-        if (config.Strategy is not EpaStrategyConfig s)
-        {
-            s = JsonSerializer.Deserialize<EpaStrategyConfig>(config.Strategy.ToString());
-        }
-
-        Angle.Replace(s.Angle);
-        ExitPowerMult.Replace(s.ExitPowerMult);
-        InitialBetPercOfBudget.Replace(s.InitialBetPercOfBudget);
-        MaxEnterPriceDistance.Replace(s.MaxEnterPriceDistance);
-        PowerCap.Replace(s.PowerCap);
-        PowerMult.Replace(s.PowerMult);
-        TargetExitPriceDistance.Replace(s.TargetExitPriceDistance);
-        ReductionMidpoint.Replace(s.ReductionMidpoint);
-        DipRescuePercOfBudget.Replace(s.DipRescuePercOfBudget);
-        DipRescueEnterPriceDistance.Replace(s.DipRescueEnterPriceDistance);
-    }
-}
-
-class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromosome>
-{
-    // State
-    double _ep = 0d;
-    double _enter = double.NaN;
-
-    // Settings
-    double _minAssetPercOfBudget = 0.001;
-    double _initialBetPercOfBudget = 0.00972788780927658;
-
-    double _maxEnterPriceDistance = 0.005408694734796882;
-    double _powerMult = 7.437917161732912;
-    double _powerCap = 8.70842173229903;
-
-    double _angle //0-90; the higher, the less assets to buy
-    {
-        set
-        {
-            var angleRad = value * Math.PI / 180;
-            _sqrtTan = Math.Sqrt(Math.Tan(angleRad));
-        }
-    }
-    double _sqrtTan;
-
-    double _targetExitPriceDistance = 0.015694422647356987;
-    double _exitPowerMult = 6.586619149893522;
-
-    double _reductionMidpoint = 0.7729685984551907;
-
-    double _dipRescuePercOfBudget = 0.5; //0.5 - 1
-    double _dipRescueEnterPriceDistance = 0.10; //0.2 - 2
-
-    public EnterPriceAngleStrategy()
-    {
-        _angle = 10.999484225176275;
-    }
-
-    public double GetSize(double price, double dir, double asset, double budget, double currency)
-    {
-        var availableCurrency = Math.Max(0, currency - (budget * _dipRescuePercOfBudget));
-
-        double size;
-        if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
-        {
-            // initial bet -> buy
-            size = (availableCurrency * _initialBetPercOfBudget) / price;
-
-            // need to indicate sell in case the price grows, but we need to buy
-            if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
-        }
-        else if (price < _enter)
-        {
-            var dist = (_enter - price) / _enter;
-            if (dist >= _dipRescueEnterPriceDistance)
-            {
-                // Unblock full currency
-                availableCurrency = currency;
-            }
-
-            //currency / price # buy power
-            var half = ((availableCurrency / price) + asset) * _reductionMidpoint;
-            var hhSize = half - asset;
-
-            // sell to reduce position
-            if (half < asset)
-            {
-                size = hhSize;
-            }
-            else
-            {
-                // buy to lower enter price
-                // https://www.desmos.com/calculator/na4ovcuavg
-                // https://www.desmos.com/calculator/rkw80qbgp3
-                // a: _ep
-                // b: price
-                // c: asset
-                // d: target angle
-                // x: size
-
-                // calculate recommended price based on preference of cost to reduction ratio
-                var cost = Math.Sqrt(_ep) / _sqrtTan;
-                var candidateSize = cost / price;
-
-                var norm = dist / _maxEnterPriceDistance;
-                var power = Math.Min(Math.Pow(norm, 4) * _powerMult, _powerCap);
-                var newSize = candidateSize * power;
-
-                size = double.IsNaN(newSize) ? 0 : Math.Max(0, Math.Min(hhSize, newSize));
-            }
-        }
-        else
-        {
-            // sell?
-            var dist = (price - _enter) / price;
-            var norm = dist / _targetExitPriceDistance;
-            var power = Math.Pow(norm, 4) * _exitPowerMult;
-            size = -asset * power;
-        }
-
-        if (size > 0)
-        {
-            size = Math.Min(size, availableCurrency / price);
-        }
-
-        return size;
-    }
-
-    public double GetCenterPrice(double price, double asset, double budget, double currency)
-    {
-        return price;
-
-        //if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
-        //{
-        //    return price;
-        //}
-
-        //var availableCurrency = Math.Max(0, currency - (budget * _dipRescuePercOfBudget));
-        //var dist = (_enter - price) / _enter;
-        //if (dist >= _dipRescueEnterPriceDistance)
-        //{
-        //    // Unblock full currency
-        //    availableCurrency = currency;
-        //}
-
-        //return Math.Min(_enter, availableCurrency * _reductionMidpoint / asset / (1-_reductionMidpoint));
-    }
-
-    public void OnTrade(double price, double asset, double size)
-    {
-        var newAsset = asset + size;
-        _ep = size >= 0 ? _ep + (price * size) : (_ep / asset) * newAsset;
-        _enter = _ep / newAsset;
-    }
-
-    public IStrategyPrototype<EnterPriceAngleStrategyChromosome> CreateInstance(EnterPriceAngleStrategyChromosome chromosome)
-    {
-        return new EnterPriceAngleStrategy
-        {
-            _ep = 0,
-            _enter = double.NaN,
-
-            _initialBetPercOfBudget = chromosome.InitialBetPercOfBudget,
-
-            _maxEnterPriceDistance = chromosome.MaxEnterPriceDistance,
-            _powerMult = chromosome.PowerMult,
-            _powerCap = chromosome.PowerCap,
-
-            _angle = chromosome.Angle,
-
-            _targetExitPriceDistance = chromosome.TargetExitPriceDistance,
-            _exitPowerMult = chromosome.ExitPowerMult,
-
-            _reductionMidpoint = chromosome.ReductionMidpoint,
-
-            _dipRescuePercOfBudget = chromosome.DipRescuePercOfBudget,
-            _dipRescueEnterPriceDistance = chromosome.DipRescueEnterPriceDistance,
-        };
-    }
-
-    public EnterPriceAngleStrategyChromosome GetAdamChromosome() => new();
-
-    public double Evaluate(IEnumerable<Trade> trades, double budget, long timeFrame)
-    {
-        var t = trades.ToList();
-        if (!t.Any()) return 0;
-
-        // continuity -> stable performance and delivery of budget extra
-        // get profit at least every 14 days
-        var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 25);
-        var gk = timeFrame / frames;
-        var lastBudgetExtra = 0d;
-        var minFitness = double.MaxValue;
-
-        for (var i = 0; i < frames; i++)
-        {
-            var f0 = gk * i;
-            var f1 = gk * (i + 1);
-            var frameTrades = t
-                .SkipWhile(x => x.Time < f0)
-                .TakeWhile(x => x.Time < f1)
-                .ToList();
-
-            var currentBudgetExtra = frameTrades.LastOrDefault()?.BudgetExtra ?? lastBudgetExtra;
-            var tradeFactor = 1; // TradeCountFactor(frameTrades);
-            var fitness = tradeFactor * (currentBudgetExtra - lastBudgetExtra);
-            if (fitness < minFitness)
-            {
-                minFitness = fitness;
-            }
-            lastBudgetExtra = currentBudgetExtra;
-        }
-
-        return minFitness;
-        //return factor * t.Last().BudgetExtra;
-    }
-
-    private static double TradeCountFactor(ICollection<Trade> tr)
-    {
-        if (tr.Count < 2) return 0;
-        var last = tr.Last();
-        var first = tr.First();
-
-        var trades = tr.Count(x => x.Size != 0);
-        var alerts = tr.Count - trades;
-
-        if (trades == 0) return 0;
-
-        var days = (last.Time - first.Time) / 86400000d;
-        var tradesPerDay = trades / days;
-
-        const int mean = 18;
-        const int delta = 13; // target trade range is 5 - 31 trades per day
-
-        var x = Math.Abs(tradesPerDay - mean); // 0 - inf, 0 is best
-        var y = Math.Max(x - delta, 0) + 1; // 1 - inf, 1 is best ... 
-        var r = 1 / y;
-
-        var alertsFactor = Math.Pow(1 - (alerts / (double)tr.Count), 5);
-        return r * alertsFactor;
-    }
-}
-
-class HalfHalf
-{
-    public double GetSize(double price, double asset, double budget, double currency)
-    {
-        return (((currency / price) + asset) * 0.5) - asset;
-    }
-
-    public void OnTrade(double price, double size)
-    { }
-}
-
-public class EpaStrategyConfig
-{
-    [JsonPropertyName("type")]
-    public string Type { get; set; }
-
-    [JsonPropertyName("exit_power_mult")]
-    public double ExitPowerMult { get; set; }
-
-    [JsonPropertyName("initial_bet_perc_of_budget")]
-    public double InitialBetPercOfBudget { get; set; }
-
-    [JsonPropertyName("max_enter_price_distance")]
-    public double MaxEnterPriceDistance { get; set; }
-
-    [JsonPropertyName("min_asset_perc_of_budget")]
-    public double MinAssetPercOfBudget { get; set; }
-
-    [JsonPropertyName("power_cap")]
-    public double PowerCap { get; set; }
-
-    [JsonPropertyName("power_mult")]
-    public double PowerMult { get; set; }
-
-    [JsonPropertyName("target_exit_price_distance")]
-    public double TargetExitPriceDistance { get; set; }
-
-    [JsonPropertyName("angle")]
-    public double Angle { get; set; }
-
-    [JsonPropertyName("reduction_midpoint")]
-    public double ReductionMidpoint { get; set; }
-
-    [JsonPropertyName("dip_rescue_perc_of_budget")]
-    public double DipRescuePercOfBudget { get; set; }
-
-    [JsonPropertyName("dip_rescue_enter_price_distance")]
-    public double DipRescueEnterPriceDistance { get; set; }
-
-    [JsonPropertyName("backtest")]
-    public bool Backtest { get; set; }
 }
