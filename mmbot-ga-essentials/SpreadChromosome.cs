@@ -104,6 +104,19 @@ namespace MMBotGA.ga
             };
         }
 
+        public virtual void FromConfig(Config config)
+        {
+            Sma.Replace(config.SpreadCalcSmaHours);
+            Stdev.Replace(config.SpreadCalcStdevHours);
+            ModeGene.Replace(Array.IndexOf(_modes, config.DynmultMode));
+            FreezeGene.Replace(config.SpreadFreeze ? 1 : 0);
+            DynMultGene.Replace(config.DynmultMult ? 1 : 0);
+            Raise.Replace(config.DynmultRaise);
+            Fall.Replace(config.DynmultFall);
+            Cap.Replace(config.DynmultCap);
+            Mult.Replace(config.SellStepMult);
+        }
+
         public override Gene GenerateGene(int geneIndex) => Factory.Generate(geneIndex);
     }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using GeneticSharp.Domain.Chromosomes;
+﻿using GeneticSharp.Domain.Chromosomes;
 
 namespace MMBotGA.ga
 {
@@ -21,6 +20,11 @@ namespace MMBotGA.ga
         public Gene Generate()
         {
             return _generateFunc();
+        }
+
+        public virtual void Replace(T value)
+        {
+            _parent.ReplaceGene(_index, new Gene(value));
         }
 
         public static implicit operator T(GeneWrapper<T> gene) => gene.Value;

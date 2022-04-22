@@ -1,4 +1,7 @@
-﻿using GeneticSharp.Domain;
+﻿#define GA
+#define BTC
+
+using GeneticSharp.Domain;
 using GeneticSharp.Domain.Chromosomes;
 using GeneticSharp.Domain.Crossovers;
 using GeneticSharp.Domain.Mutations;
@@ -18,8 +21,42 @@ using System.Text.Json.Serialization;
 
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
+#region Source data
+var filename = "KUCOIN_HTR-USDT_01.04.2021_01.04.2022.csv";
+//var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
+//var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
+//var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
+#endregion
+
+#region Configuration for static test
+var configFile = "base64-best.json";
+#endregion
+
+#region Market info
+#if BTC
+const double budget = 0.1d;
+const double minOrderCost = 0.00000001d;
+const double fixedTradeFee = 0.0000002174d;
+
+#elif USD
+const double budget = 7000d;
+const double minOrderCost = 10d;
+const double fixedTradeFee = 0.01d;
+#endif
+
+const double tradeFee = 0.002d; // 0.007
+const double tradeRebate = 0; // 0.00025d;
+#endregion
+
+#if GA
 Ga<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>();
-//StaticTest();
+#else
+StaticTest<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>(x =>
+{
+    x.DipRescuePercOfBudget.Replace(0.5d);
+    x.DipRescueEnterPriceDistance.Replace(0.2d);
+});
+#endif
 
 void Ga<T,S>() 
     where T : IStrategyPrototype<S>, new()
@@ -27,11 +64,6 @@ void Ga<T,S>()
 {
     // todo: downloader, chunks
     // todo: fitness max cost
-
-    var filename = "KUCOIN_HTR-USDT_01.04.2021_01.04.2022.csv";
-    //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
-    //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
-    //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
 
     var prices = File
         .ReadAllLines(filename)
@@ -116,12 +148,14 @@ static string GetDirectory(string suffix)
     return directory.FullName;
 }
 
-void StaticTest()
+void StaticTest<T,S>(Action<S> tweak = null)
+    where T : IStrategyPrototype<S>, new()
+    where S : SpreadChromosome, new()
 {
-    //var filename = "FTX_DOGE-PERP_03.12.2020_03.12.2021.csv";
-    var filename = "KUCOIN_XDB-USDT_01.04.2021_01.04.2022.csv";
-    //var filename = "KUCOIN_HTR-USDT_01.01.2020_01.04.2022.csv";
-    //var filename = "KUCOIN_FLUX-USDT_01.01.2021_06.03.2022.csv";
+    var config = JsonSerializer.Deserialize<Config>(Encoding.UTF8.GetString(Convert.FromBase64String(File.ReadAllText(configFile).Trim('{', '}', ' '))));
+    var chromosome = new S();
+    chromosome.FromConfig(config);
+    if (tweak != null) tweak(chromosome);
 
     var prices = File
         .ReadAllLines(filename)
@@ -130,26 +164,9 @@ void StaticTest()
         .ToList();
     using var writer = File.CreateText("out.csv");
 
-    var strategy = new EnterPriceAngleStrategy();
-
-    var genTrades = new GenTradesRequest
-    {
-        BeginTime = 0,
-        Stdev = 238.6920513836667,
-        Sma = 20.29968843050301,
-        Mult = 0.6610092297196388,
-        Mode = "Together",
-        Raise = 61.17793273227289,
-        Fall = 6.3417955216486,
-        Cap = 2.8303833678364754,
-        DynMult = true,
-        SpreadFreeze = true,
-        Sliding = false
-    };
-
     var sw = new Stopwatch();
     sw.Restart();
-    Evaluate(prices, genTrades, strategy, writer);
+    Evaluate(prices, chromosome.ToRequest(), new T().CreateInstance(chromosome), writer);
     sw.Stop();
     Console.WriteLine($"Done in {sw.ElapsedMilliseconds} ms");
 }
@@ -162,19 +179,6 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
     var simulatedTrades = new List<Trade>();
     var ep = 0d;
     var asset = 0d;
-
-    // BTC
-    //const double budget = 0.1d;
-    //const double minOrderCost = 0.00000001d;
-    //const double fixedTradeFee = 0.0000002174d;
-
-    // USD
-    const double budget = 7000d;
-    const double minOrderCost = 10d;
-    const double fixedTradeFee = 0.01d;
-
-    const double tradeFee = 0.002d; // 0.007
-    const double tradeRebate = 0; // 0.00025d;
     
     var currency = budget;
     var index = 0;
@@ -346,6 +350,27 @@ class EnterPriceAngleStrategyChromosome : SpreadChromosome
             Backtest = false
         };
         return res;
+    }
+
+    public override void FromConfig(Config config)
+    {
+        base.FromConfig(config);
+
+        if (config.Strategy is not EpaStrategyConfig s)
+        {
+            s = JsonSerializer.Deserialize<EpaStrategyConfig>(config.Strategy.ToString());
+        }
+
+        Angle.Replace(s.Angle);
+        ExitPowerMult.Replace(s.ExitPowerMult);
+        InitialBetPercOfBudget.Replace(s.InitialBetPercOfBudget);
+        MaxEnterPriceDistance.Replace(s.MaxEnterPriceDistance);
+        PowerCap.Replace(s.PowerCap);
+        PowerMult.Replace(s.PowerMult);
+        TargetExitPriceDistance.Replace(s.TargetExitPriceDistance);
+        ReductionMidpoint.Replace(s.ReductionMidpoint);
+        DipRescuePercOfBudget.Replace(s.DipRescuePercOfBudget);
+        DipRescueEnterPriceDistance.Replace(s.DipRescueEnterPriceDistance);
     }
 }
 
