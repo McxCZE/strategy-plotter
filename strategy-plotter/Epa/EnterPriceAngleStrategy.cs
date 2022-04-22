@@ -42,7 +42,7 @@
             var availableCurrency = Math.Max(0, currency - budget * _dipRescuePercOfBudget);
 
             double size;
-            if (double.IsNaN(_enter) || asset * price < budget * _minAssetPercOfBudget)
+            if (double.IsNaN(_enter) || asset * price < budget * _minAssetPercOfBudget * (1 - _dipRescuePercOfBudget))
             {
                 // initial bet -> buy
                 size = availableCurrency * _initialBetPercOfBudget / price;
