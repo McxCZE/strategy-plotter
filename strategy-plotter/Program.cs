@@ -451,20 +451,22 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
 
     public double GetCenterPrice(double price, double asset, double budget, double currency)
     {
-        if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
-        {
-            return price;
-        }
+        return price;
 
-        var availableCurrency = Math.Max(0, currency - (budget * _dipRescuePercOfBudget));
-        var dist = (_enter - price) / _enter;
-        if (dist >= _dipRescueEnterPriceDistance)
-        {
-            // Unblock full currency
-            availableCurrency = currency;
-        }
+        //if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
+        //{
+        //    return price;
+        //}
 
-        return Math.Min(_enter, availableCurrency * _reductionMidpoint / asset / (1-_reductionMidpoint));
+        //var availableCurrency = Math.Max(0, currency - (budget * _dipRescuePercOfBudget));
+        //var dist = (_enter - price) / _enter;
+        //if (dist >= _dipRescueEnterPriceDistance)
+        //{
+        //    // Unblock full currency
+        //    availableCurrency = currency;
+        //}
+
+        //return Math.Min(_enter, availableCurrency * _reductionMidpoint / asset / (1-_reductionMidpoint));
     }
 
     public void OnTrade(double price, double asset, double size)
