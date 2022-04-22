@@ -415,27 +415,29 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
             // sell to reduce position
             if (half < asset)
             {
-                return hhSize;
+                size = hhSize;
             }
+            else
+            {
+                // buy to lower enter price
+                // https://www.desmos.com/calculator/na4ovcuavg
+                // https://www.desmos.com/calculator/rkw80qbgp3
+                // a: _ep
+                // b: price
+                // c: asset
+                // d: target angle
+                // x: size
 
-            // buy to lower enter price
-            // https://www.desmos.com/calculator/na4ovcuavg
-            // https://www.desmos.com/calculator/rkw80qbgp3
-            // a: _ep
-            // b: price
-            // c: asset
-            // d: target angle
-            // x: size
+                // calculate recommended price based on preference of cost to reduction ratio
+                var cost = Math.Sqrt(_ep) / _sqrtTan;
+                var candidateSize = cost / price;
 
-            // calculate recommended price based on preference of cost to reduction ratio
-            var cost = Math.Sqrt(_ep) / _sqrtTan;
-            var candidateSize = cost / price;
+                var norm = dist / _maxEnterPriceDistance;
+                var power = Math.Min(Math.Pow(norm, 4) * _powerMult, _powerCap);
+                var newSize = candidateSize * power;
 
-            var norm = dist / _maxEnterPriceDistance;
-            var power = Math.Min(Math.Pow(norm, 4) * _powerMult, _powerCap);
-            var newSize = candidateSize * power;
-
-            return double.IsNaN(newSize) ? 0 : Math.Max(0, Math.Min(hhSize, newSize));
+                size = double.IsNaN(newSize) ? 0 : Math.Max(0, Math.Min(hhSize, newSize));
+            }
         }
         else
         {
@@ -444,6 +446,11 @@ class EnterPriceAngleStrategy : IStrategyPrototype<EnterPriceAngleStrategyChromo
             var norm = dist / _targetExitPriceDistance;
             var power = Math.Pow(norm, 4) * _exitPowerMult;
             size = -asset * power;
+        }
+
+        if (size > 0)
+        {
+            size = Math.Min(size, availableCurrency / price);
         }
 
         return size;
