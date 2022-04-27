@@ -11,6 +11,7 @@ using MMBot.Api.dto;
 using MMBotGA.ga;
 using MMBotGA.ga.execution;
 using strategy_plotter.Epa;
+using strategy_plotter.CurrencyMathematicalAveraging;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -52,7 +53,7 @@ const double tradeRebate = 0; // 0.00025d;
 #if GA
 Ga<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>();
 #else
-StaticTest<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>(x =>
+StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
 {
     x.DipRescuePercOfBudget.Replace(0.5d);
     x.DipRescueEnterPriceDistance.Replace(0.2d);

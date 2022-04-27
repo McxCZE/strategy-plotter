@@ -50,7 +50,7 @@ namespace strategy_plotter.Epa
         public override Config ToConfig()
         {
             var res = base.ToConfig();
-            res.Strategy = new EpaStrategyConfig
+            res.Strategy = new EnterPriceAngleStrategyConfig
             {
                 Type = "enter_price_angle",
                 Angle = Angle,
@@ -73,9 +73,9 @@ namespace strategy_plotter.Epa
         {
             base.FromConfig(config);
 
-            if (config.Strategy is not EpaStrategyConfig s)
+            if (config.Strategy is not EnterPriceAngleStrategyConfig s)
             {
-                s = JsonSerializer.Deserialize<EpaStrategyConfig>(config.Strategy.ToString());
+                s = JsonSerializer.Deserialize<EnterPriceAngleStrategyConfig>(config.Strategy.ToString());
             }
 
             Angle.Replace(s.Angle);
