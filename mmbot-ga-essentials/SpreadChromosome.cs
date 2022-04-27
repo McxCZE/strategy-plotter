@@ -1,6 +1,7 @@
 ﻿using GeneticSharp.Domain.Chromosomes;
 using GeneticSharp.Domain.Randomizations;
 using MMBot.Api.dto;
+using System.Text.Json;
 
 namespace MMBotGA.ga
 {

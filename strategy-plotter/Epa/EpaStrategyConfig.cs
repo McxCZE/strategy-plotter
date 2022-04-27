@@ -2,7 +2,7 @@
 
 namespace strategy_plotter.Epa
 {
-    public class EnterPriceAngleStrategyConfig
+    public class EpaStrategyConfig : IStrategyConfig
     {
         [JsonPropertyName("type")]
         public string Type { get; set; }

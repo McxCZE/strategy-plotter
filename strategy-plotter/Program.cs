@@ -1,5 +1,6 @@
-﻿#define Stat
-#define USD
+﻿#define GA    // GA, STATIC
+#define USD   // USD, BTC
+#define EPA // EPA, GAMMA, LEVELS
 
 using GeneticSharp.Domain;
 using GeneticSharp.Domain.Crossovers;
@@ -12,6 +13,8 @@ using MMBotGA.ga;
 using MMBotGA.ga.execution;
 using strategy_plotter.Epa;
 using strategy_plotter.CurrencyMathematicalAveraging;
+using strategy_plotter.Gamma;
+using strategy_plotter.Levels;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -22,12 +25,13 @@ using System.Text.Json.Serialization;
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 #region GA data
-var filename = "KUCOIN_HTR-USDT_01.04.2021_01.04.2022.csv";
+//var filename = "KUCOIN_XDB-USDT_21.04.2021_21.04.2022.csv";
+var filename = "KUCOIN_HTR-USDT_21.04.2021_21.04.2022.csv";
 //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
 //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
 //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
 
-var outputSuffix = "-HTR-USDT-7k";
+var outputSuffix = "-GAMMA-XDB-USDT-1k";
 #endregion
 
 #region Configuration for static test
@@ -41,7 +45,7 @@ const double minOrderCost = 0.00000001d;
 const double fixedTradeFee = 0.0000002174d;
 
 #elif USD
-const double budget = 7000d;
+const double budget = 1000d;
 const double minOrderCost = 10d;
 const double fixedTradeFee = 0.01d;
 #endif
@@ -50,6 +54,7 @@ const double tradeFee = 0.002d; // 0.007
 const double tradeRebate = 0; // 0.00025d;
 #endregion
 
+#if EPA
 #if GA
 Ga<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>();
 #else
@@ -58,6 +63,20 @@ StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosom
     x._DumbDcaAgressivness(0.5d);
 });//Koko Dumb.
 #endif
+#elif GAMMA
+#if GA
+Ga<GammaStrategy, GammaStrategyChromosome>();
+#else
+StaticTest<GammaStrategy, GammaStrategyChromosome>();
+#endif
+#elif LEVELS
+#if GA
+Ga<LevelsStrategy, LevelsStrategyChromosome>();
+#else
+StaticTest<LevelsStrategy, LevelsStrategyChromosome>();
+#endif
+#endif
+
 
 void Ga<T,S>() 
     where T : IStrategyPrototype<S>, new()
@@ -156,7 +175,7 @@ void StaticTest<T,S>(Action<S> tweak = null)
     var config = JsonSerializer.Deserialize<Config>(Encoding.UTF8.GetString(Convert.FromBase64String(File.ReadAllText(configFile).Trim('{', '}', ' '))));
     var chromosome = new S();
     chromosome.FromConfig(config);
-    if (tweak != null) tweak(chromosome);
+    tweak?.Invoke(chromosome);
 
     var prices = File
         .ReadAllLines(filename)
@@ -198,6 +217,9 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
     {
         simulator.Tick(p, true);
     }
+
+    // init strategy if needed
+    strategy.OnTrade(prices.First(), 0, 0, currency);
 
     foreach (var p in prices) //todo rev ... not needed for now
     {
@@ -260,7 +282,7 @@ double Evaluate<T>(ICollection<double> prices, GenTradesRequest genTrades, IStra
 
         if (size != 0)
         {
-            strategy.OnTrade(price, asset, size);
+            strategy.OnTrade(price, asset, size, currency - budgetExtra);
         }
 
         var newAsset = asset + size;
