@@ -10,8 +10,8 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
     {
         public CurrencyMathematicalAveragingChromosome() : base(false)
         {
-            buyAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 0.5)); //0-1
-            sellAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 0.5)); //0-1
+            buyAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 100)); //0-1
+            sellAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 100)); //0-1
             FinalizeGenes();
         }
 

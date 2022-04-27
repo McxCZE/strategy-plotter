@@ -60,7 +60,8 @@ Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 #else
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
 {
-    x.DumbDcaAgressivness.Replace(0.5d);
+    x.buyAgressivness.Replace(15d);
+    x.sellAgressivness.Replace(2.5d);
 });
 #endif
 #elif GAMMA
@@ -98,7 +99,7 @@ void Ga<T,S>()
     var termination = new FitnessStagnationTermination(80);
     ThreadPool.GetAvailableThreads(out var threads, out _);
     var executor = new ExactParallelTaskExecutor(threads);
-    var population = new Population(100, 200, strategy.GetAdamChromosome());
+    var population = new Population(250, 1250, strategy.GetAdamChromosome());
     var fitness = new DynamicFitness<S>(x => Evaluate<S>(prices, x.ToRequest(), strategy.CreateInstance(x), null));
     var ga = new GeneticAlgorithm(population, fitness, selection, crossover, mutation)
     {

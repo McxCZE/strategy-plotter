@@ -16,41 +16,49 @@
             _sellAgressivness = 0.1d;
         }
 
+        //This is what's it all about
         public double GetSize(double price, double dir, double asset, double budget, double currency)
         {
             var availableCurrency = Math.Max(0, currency);
 
-            bool buy = true;
-
+            
             double size = 0;
             if (double.IsNaN(_enter))
             {
                 // initial bet -> buy
-                size = availableCurrency * _buyAgressivness;
-
-                // need to indicate sell in case the price grows, but we need to buy
-                if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
-            }
-            else if (price < _enter) // reduction
-            {
-                // sell?
-                size = -asset * _sellAgressivness;
-            }
-            else if (price > _enter)
-            {
-                size = -asset;
-            }
-            size = Math.Min(size, availableCurrency / price);
-
-            if (buy)
-            {
-                //Console.WriteLine("buy");
+                size = (availableCurrency * price) * 0.05;
             } 
             else
             {
-                //Console.WriteLine("sell");
+                var distPercentage = (Math.Abs(price - _enter) / price) * 100 ;
+                if (distPercentage > 100) { distPercentage = 100; }
+
+                var decisionCurveBuy = ((distPercentage * (distPercentage / _buyAgressivness)) / 100);
+                var decisionCurveSell = ((distPercentage * (distPercentage - _sellAgressivness)) / 100);
+
+                var assetsToBuy = budget * decisionCurveBuy;
+                var assetsToSell = budget * decisionCurveSell;
+                var heldAssets = (asset * price);
+
+                //Buy decisions.
+                if (dir > 0) {
+                    size = Math.Abs((assetsToBuy - heldAssets)) / price;
+                    if (size < 0) { size = 0; }
+                    //if (price > _enter) { size = 0; }
+                }
+                //Sell decisions.
+                if (dir < 0) {
+                    //if (price >= _enter) 
+                    //{ size = assetSell; }
+                    //else
+                    //{ size = 0; }
+                    size = Math.Abs((assetsToSell - heldAssets)) / price;
+                }
             }
 
+            //Set size positive/negative, based on direction.
+            size = size * dir;
+            size = Math.Min(size, availableCurrency / price);
 
             return size;
         }
@@ -128,11 +136,12 @@
             //}
 
             //return minFitness;
-            //return factor * t.Last().BudgetExtra;
+
+            //var t = trades.ToList();
+            //return t.Where(x => x.Size != 0).Count();
 
             var t = trades.ToList();
-
-            return t.Where(x => x.Size != 0).Count();
+            return t.Last().BudgetExtra;
         }
     }
 }
