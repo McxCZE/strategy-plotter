@@ -1,6 +1,6 @@
 ﻿#define GA    // GA, STATIC
 #define USD   // USD, BTC
-#define GAMMA // EPA, GAMMA
+#define EPA // EPA, GAMMA, LEVELS
 
 using GeneticSharp.Domain;
 using GeneticSharp.Domain.Crossovers;
@@ -13,6 +13,7 @@ using MMBotGA.ga;
 using MMBotGA.ga.execution;
 using strategy_plotter.Epa;
 using strategy_plotter.Gamma;
+using strategy_plotter.Levels;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -23,7 +24,8 @@ using System.Text.Json.Serialization;
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 #region GA data
-var filename = "KUCOIN_XDB-USDT_21.04.2021_21.04.2022.csv";
+//var filename = "KUCOIN_XDB-USDT_21.04.2021_21.04.2022.csv";
+var filename = "KUCOIN_HTR-USDT_21.04.2021_21.04.2022.csv";
 //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
 //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
 //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
@@ -66,6 +68,12 @@ StaticTest<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>(x =>
 Ga<GammaStrategy, GammaStrategyChromosome>();
 #else
 StaticTest<GammaStrategy, GammaStrategyChromosome>();
+#endif
+#elif LEVELS
+#if GA
+Ga<LevelsStrategy, LevelsStrategyChromosome>();
+#else
+StaticTest<LevelsStrategy, LevelsStrategyChromosome>();
 #endif
 #endif
 
