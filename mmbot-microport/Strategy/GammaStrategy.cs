@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace mmbot_microport.Strategy;
 
-internal class GammaStrategy : IStrategy
+public class IntegrationTable
 {
     public enum Function
     {
@@ -14,127 +14,127 @@ internal class GammaStrategy : IStrategy
         Invsqrtsinh
     }
 
-    public class IntegrationTable
+    public readonly Function Fn;
+    public readonly double Z;
+    public readonly double A;
+    public readonly double B;
+    private readonly List<Tuple<double, double>> _values;
+
+    public IntegrationTable(Function fn, double z)
     {
-        public readonly Function Fn;
-        public readonly double Z;
-        public readonly double A;
-        public readonly double B;
-        private readonly List<Tuple<double, double>> _values;
+        this.Fn = fn;
+        this.Z = z;
 
-        public IntegrationTable(Function fn, double z)
+        if (z <= 0.1) throw new ArgumentOutOfRangeException(nameof(z), z, "Invalid exponent value");
+        double y;
+
+        //calculate maximum for integration. Since this point, the integral is flat
+        //power number 16 by 1/z (for z=1, this value is 16)
+        B = Math.Pow(16, 1.0 / z);
+        switch (fn)
         {
-            this.Fn = fn;
-            this.Z = z;
-
-            if (z <= 0.1) throw new ArgumentOutOfRangeException(nameof(z), z, "Invalid exponent value");
-            double y;
-
-            //calculate maximum for integration. Since this point, the integral is flat
-            //power number 16 by 1/z (for z=1, this value is 16)
-            B = Math.Pow(16, 1.0 / z);
-            switch (fn)
-            {
-                case Function.Exponencial:
-                case Function.Gauss:
-                    A = 0;
-                    y = 0; break;
-                case Function.Invsqrtsinh:
-                    A = Math.Pow(0.001, 1.0 / z); ;
-                    y = 0; break;
-                case Function.Halfhalf:
-                    A = Math.Pow(0.0001, 1.0 / z);
-                    y = 2 * Math.Sqrt(A);
-                    break;
-                default:
-                    A = Math.Pow(0.0001, 1.0 / z);
-                    y = 0;
-                    break;
-            }
-            //generate integration table between a and b.
-            //maximum step is 0.00001
-            //starting by y and generate x,y table
-            _values = new List<Tuple<double, double>>();
-            Numerical.GenerateIntTable(MainFunction, A, B, 0.0001, y, (l, r) => _values.Add(new Tuple<double, double>(l, r)));
+            case Function.Exponencial:
+            case Function.Gauss:
+                A = 0;
+                y = 0; break;
+            case Function.Invsqrtsinh:
+                A = Math.Pow(0.001, 1.0 / z); ;
+                y = 0; break;
+            case Function.Halfhalf:
+                A = Math.Pow(0.0001, 1.0 / z);
+                y = 2 * Math.Sqrt(A);
+                break;
+            default:
+                A = Math.Pow(0.0001, 1.0 / z);
+                y = 0;
+                break;
         }
-
-        private double Get(double x)
-        {
-            if (x <= A)
-            {
-                return Fn switch
-                {
-                    Function.Halfhalf => 2 * Math.Sqrt(x),
-                    Function.Invsqrtsinh => _values[0].Item2,
-                    _ => Math.Log(x / A)
-                };
-            }
-
-            //because table is ordered, use divide-half to search first  >= x;
-            var i = _values.FindIndex(v => v.Item1 >= x && v.Item2 >= 0);
-            switch (i)
-            {
-                //for the very first record, just return the value
-                case 0:
-                    return _values.First().Item2;
-                //if we are after end, return last value
-                case -1:
-                    return _values.Last().Item2;
-                default:
-                    //retrieve lower bound
-                    var (ll, lh) = _values[i - 1];
-                    //retrieve upper bound
-                    var (ul, uh) = _values[i];
-                    //linear approximation
-                    return lh + (uh - lh) * (x - ll) / (ul - ll);
-            }
-        }
-
-        public double GetMax() => _values.Last().Item2;
-        public double GetMin() => Math.Pow(0.000095, 1.0 / Z);
-
-        private double MainFunction(double x)
-        {
-            return Fn switch
-            {
-                Function.Halfhalf => Math.Exp(-(Math.Pow(x, Z)) - 0.5 * Math.Log(x)),
-                Function.Keepvalue => Math.Exp(-Math.Pow(x, Z)) / x,
-                Function.Exponencial => Math.Exp(-Math.Pow(x, Z)),
-                Function.Gauss => Math.Exp(-(x * x) - Math.Pow(x, Z)),
-                Function.Invsqrtsinh => 1.0 / Math.Sqrt(Math.Sinh(Math.Pow(x * 1.2, Z))),
-                _ => 0
-            };
-        }
-
-        public double CalcAssets(double k, double w, double x)
-        {
-            return Fn switch
-            {
-                Function.Halfhalf => MainFunction(x / k) * w / k,
-                Function.Keepvalue => MainFunction(x / k) * w / k,
-                Function.Exponencial => MainFunction(x / k) * w / k,
-                Function.Gauss => MainFunction(x / k) * w / k,
-                Function.Invsqrtsinh => MainFunction(x / k) * w / k,
-                _ => 0
-            };
-        }
-
-        public double CalcBudget(double k, double w, double x)
-        {
-            return Fn switch
-            {
-                Function.Halfhalf => Get(x / k) * w,
-                Function.Keepvalue => Get(x / k) * w,
-                Function.Exponencial => Get(x / k) * w,
-                Function.Gauss => Get(x / k) * w,
-                Function.Invsqrtsinh => Get(x / k) * w,
-                _ => 0
-            };
-        }
-
-        double CalcCurrency(double k, double w, double x) => CalcBudget(k, w, x) - CalcAssets(k, w, x) * x;
+        //generate integration table between a and b.
+        //maximum step is 0.00001
+        //starting by y and generate x,y table
+        _values = new List<Tuple<double, double>>();
+        Numerical.GenerateIntTable(MainFunction, A, B, 0.0001, y, (l, r) => _values.Add(new Tuple<double, double>(l, r)));
     }
 
+    private double Get(double x)
+    {
+        if (x <= A)
+        {
+            return Fn switch
+            {
+                Function.Halfhalf => 2 * Math.Sqrt(x),
+                Function.Invsqrtsinh => _values[0].Item2,
+                _ => Math.Log(x / A)
+            };
+        }
+
+        //because table is ordered, use divide-half to search first  >= x;
+        var i = _values.FindIndex(v => v.Item1 >= x && v.Item2 >= 0);
+        switch (i)
+        {
+            //for the very first record, just return the value
+            case 0:
+                return _values.First().Item2;
+            //if we are after end, return last value
+            case -1:
+                return _values.Last().Item2;
+            default:
+                //retrieve lower bound
+                var (ll, lh) = _values[i - 1];
+                //retrieve upper bound
+                var (ul, uh) = _values[i];
+                //linear approximation
+                return lh + (uh - lh) * (x - ll) / (ul - ll);
+        }
+    }
+
+    public double GetMax() => _values.Last().Item2;
+    public double GetMin() => Math.Pow(0.000095, 1.0 / Z);
+
+    private double MainFunction(double x)
+    {
+        return Fn switch
+        {
+            Function.Halfhalf => Math.Exp(-(Math.Pow(x, Z)) - 0.5 * Math.Log(x)),
+            Function.Keepvalue => Math.Exp(-Math.Pow(x, Z)) / x,
+            Function.Exponencial => Math.Exp(-Math.Pow(x, Z)),
+            Function.Gauss => Math.Exp(-(x * x) - Math.Pow(x, Z)),
+            Function.Invsqrtsinh => 1.0 / Math.Sqrt(Math.Sinh(Math.Pow(x * 1.2, Z))),
+            _ => 0
+        };
+    }
+
+    public double CalcAssets(double k, double w, double x)
+    {
+        return Fn switch
+        {
+            Function.Halfhalf => MainFunction(x / k) * w / k,
+            Function.Keepvalue => MainFunction(x / k) * w / k,
+            Function.Exponencial => MainFunction(x / k) * w / k,
+            Function.Gauss => MainFunction(x / k) * w / k,
+            Function.Invsqrtsinh => MainFunction(x / k) * w / k,
+            _ => 0
+        };
+    }
+
+    public double CalcBudget(double k, double w, double x)
+    {
+        return Fn switch
+        {
+            Function.Halfhalf => Get(x / k) * w,
+            Function.Keepvalue => Get(x / k) * w,
+            Function.Exponencial => Get(x / k) * w,
+            Function.Gauss => Get(x / k) * w,
+            Function.Invsqrtsinh => Get(x / k) * w,
+            _ => 0
+        };
+    }
+
+    double CalcCurrency(double k, double w, double x) => CalcBudget(k, w, x) - CalcAssets(k, w, x) * x;
+}
+
+internal class GammaStrategy : IStrategy
+{
     private struct JsonConfig
     {
         [JsonPropertyName("type")]
@@ -166,7 +166,7 @@ internal class GammaStrategy : IStrategy
     {
         public string CalcConfigHash()
         {
-            return new Tuple<Function, double, double>(IntTable.Fn, IntTable.Z, Trend)
+            return new Tuple<IntegrationTable.Function, double, double>(IntTable.Fn, IntTable.Z, Trend)
                 .GetHashCode()
                 .ToString();
         }
@@ -175,7 +175,7 @@ internal class GammaStrategy : IStrategy
         {
             var cf = JsonSerializer.Deserialize<JsonConfig>(config);
             return new Config(
-                new IntegrationTable(Enum.Parse<Function>(cf.Function, true), cf.Exponent),
+                new IntegrationTable(Enum.Parse<IntegrationTable.Function>(cf.Function, true), cf.Exponent),
                 int.Parse(cf.Rebalance),
                 cf.Trend,
                 cf.Reinvest,
@@ -353,7 +353,7 @@ internal class GammaStrategy : IStrategy
         }
         var cur = _cfg.IntTable.CalcBudget(_state.Kk, _state.W, _state.P) - a * _state.P;
         var adjcur = minfo.Leverage != 0 ? minfo.Leverage * currencies - assets * _state.P : currencies;
-        if (cur > adjcur || _cfg.IntTable.Fn == Function.Keepvalue)
+        if (cur > adjcur || _cfg.IntTable.Fn == IntegrationTable.Function.Keepvalue)
         {
             if (adjcur < 0) min = _state.P;
             else
@@ -454,7 +454,7 @@ internal class GammaStrategy : IStrategy
             var r0 = a / b * price;
             if (r > r0)
             {
-                if (r < 0.5 || _cfg.IntTable.Fn != Function.Halfhalf)
+                if (r < 0.5 || _cfg.IntTable.Fn != IntegrationTable.Function.Halfhalf)
                 {
                     newstK = Numerical.NumericSearchR2(k, k1 => {
                         var a1 = _cfg.IntTable.CalcAssets(CalibK(k1), 1, price);

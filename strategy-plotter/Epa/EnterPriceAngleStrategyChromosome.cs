@@ -2,7 +2,6 @@
 using GeneticSharp.Domain.Randomizations;
 using MMBot.Api.dto;
 using MMBotGA.ga;
-using System.Text.Json;
 
 namespace strategy_plotter.Epa
 {
@@ -73,10 +72,7 @@ namespace strategy_plotter.Epa
         {
             base.FromConfig(config);
 
-            if (config.Strategy is not EpaStrategyConfig s)
-            {
-                s = JsonSerializer.Deserialize<EpaStrategyConfig>(config.Strategy.ToString());
-            }
+            var s = config.ParseStrategyConfig<EpaStrategyConfig>("enter_price_angle");
 
             Angle.Replace(s.Angle);
             ExitPowerMult.Replace(s.ExitPowerMult);

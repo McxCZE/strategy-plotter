@@ -1,6 +1,6 @@
 ﻿namespace mmbot_microport.Strategy;
 
-internal static class Numerical
+public static class Numerical
 {
     private const double Accuracy = 1e-6;
 
