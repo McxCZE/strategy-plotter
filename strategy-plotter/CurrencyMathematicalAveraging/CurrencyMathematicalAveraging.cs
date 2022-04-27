@@ -7,11 +7,11 @@
         double _enter = double.NaN;
 
         // Settings
-        double _dumbDcaAggresivness = 0.5;
+        double _DumbDcaAggresivness;
 
         public CurrencyMathematicalAveraging()
         {
-            //_angle = 10.999484225176275;
+            _DumbDcaAggresivness = 0.5;
         }
 
         public double GetSize(double price, double dir, double asset, double budget, double currency)
@@ -22,7 +22,7 @@
             if (double.IsNaN(_enter) || asset * price < budget)
             {
                 // initial bet -> buy
-                size = availableCurrency * _dumbDcaAggresivness;
+                size = availableCurrency * _DumbDcaAggresivness;
 
                 // need to indicate sell in case the price grows, but we need to buy
                 if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
@@ -112,7 +112,7 @@
                 _ep = 0,
                 _enter = double.NaN,
 
-                _dumbDcaAggresivness = chromosome.InitialBetPercOfBudget
+                _DumbDcaAggresivness = chromosome.DumbDcaAgressivness
             };
         }
 

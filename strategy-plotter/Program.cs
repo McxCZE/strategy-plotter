@@ -1,4 +1,4 @@
-﻿#define Static
+﻿#define Stat
 #define USD
 
 using GeneticSharp.Domain;
@@ -55,9 +55,8 @@ Ga<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>();
 #else
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
 {
-    x.DipRescuePercOfBudget.Replace(0.5d);
-    x.DipRescueEnterPriceDistance.Replace(0.2d);
-});
+    x._DumbDcaAgressivness(0.5d);
+});//Koko Dumb.
 #endif
 
 void Ga<T,S>() 
