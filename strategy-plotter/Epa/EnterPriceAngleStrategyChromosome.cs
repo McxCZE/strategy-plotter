@@ -49,7 +49,7 @@ namespace strategy_plotter.Epa
         public override Config ToConfig()
         {
             var res = base.ToConfig();
-            res.Strategy = new EnterPriceAngleStrategyConfig
+            res.Strategy = new EpaStrategyConfig
             {
                 Type = "enter_price_angle",
                 Angle = Angle,

@@ -1,6 +1,6 @@
-﻿#define GA    // GA, STATIC
+﻿#define GAx    // GA, STATIC
 #define USD   // USD, BTC
-#define EPA // EPA, GAMMA, LEVELS
+#define CMA // GAMMA, LEVELS, CMA
 
 using GeneticSharp.Domain;
 using GeneticSharp.Domain.Crossovers;
@@ -26,12 +26,12 @@ ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 #region GA data
 //var filename = "KUCOIN_XDB-USDT_21.04.2021_21.04.2022.csv";
-var filename = "KUCOIN_HTR-USDT_21.04.2021_21.04.2022.csv";
+var filename = "FTX_ALPHA-PERP_21.03.2021_21.04.2022.csv";
 //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
 //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
 //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
 
-var outputSuffix = "-GAMMA-XDB-USDT-1k";
+var outputSuffix = "-ALPHA-CMA-";
 #endregion
 
 #region Configuration for static test
@@ -54,14 +54,14 @@ const double tradeFee = 0.002d; // 0.007
 const double tradeRebate = 0; // 0.00025d;
 #endregion
 
-#if EPA
+#if CMA
 #if GA
 Ga<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>();
 #else
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
 {
-    x._DumbDcaAgressivness(0.5d);
-});//Koko Dumb.
+    x.DumbDcaAgressivness.Replace(0.5d);
+});
 #endif
 #elif GAMMA
 #if GA

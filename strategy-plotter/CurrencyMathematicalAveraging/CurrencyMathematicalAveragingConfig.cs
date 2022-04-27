@@ -2,7 +2,7 @@
 
 namespace strategy_plotter.CurrencyMathematicalAveraging
 {
-    public class CurrencyMathematicalAveragingConfig
+    public class CurrencyMathematicalAveragingConfig : IStrategyConfig
     {
         [JsonPropertyName("type")]
         public string Type { get; set; }

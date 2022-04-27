@@ -98,7 +98,7 @@
             //return Math.Min(_enter, availableCurrency * _reductionMidpoint / asset / (1-_reductionMidpoint));
         }
 
-        public void OnTrade(double price, double asset, double size)
+        public void OnTrade(double price, double asset, double size, double currency)
         {
             var newAsset = asset + size;
             _ep = size >= 0 ? _ep + price * size : _ep / asset * newAsset;
