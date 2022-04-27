@@ -10,13 +10,13 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
     {
         public CurrencyMathematicalAveragingChromosome() : base(false)
         {
-            DumbDcaAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0, 1)); //0-1
-
+            buyAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 0.5)); //0-1
+            sellAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 0.5)); //0-1
             FinalizeGenes();
         }
 
-        public GeneWrapper<double> DumbDcaAgressivness { get; }
-
+        public GeneWrapper<double> buyAgressivness { get; }
+        public GeneWrapper<double> sellAgressivness { get; }
 
         public override IChromosome CreateNew() => new CurrencyMathematicalAveragingChromosome();
 
@@ -25,8 +25,9 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
             var res = base.ToConfig();
             res.Strategy = new CurrencyMathematicalAveragingConfig
             {
-                Type = "enter_price_angle",
-                DumbDcaAgressivness = DumbDcaAgressivness,
+                Type = "cma",
+                buyAgressivness = buyAgressivness,
+                sellAggressivness = sellAgressivness,
                 Backtest = false
             };
             return res;
@@ -41,7 +42,8 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 s = JsonSerializer.Deserialize<CurrencyMathematicalAveragingConfig>(config.Strategy.ToString());
             }
 
-            DumbDcaAgressivness.Replace(s.DumbDcaAgressivness);
+            buyAgressivness.Replace(s.buyAgressivness);
+            sellAgressivness.Replace(s.sellAggressivness);
         }
     }
 }

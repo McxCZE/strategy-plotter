@@ -7,73 +7,50 @@
         double _enter = double.NaN;
 
         // Settings
-        double _DumbDcaAggresivness;
+        double _buyAgressivness;
+        double _sellAgressivness;
 
         public CurrencyMathematicalAveraging()
         {
-            _DumbDcaAggresivness = 0.5;
+            _buyAgressivness = 0.1d;
+            _sellAgressivness = 0.1d;
         }
 
         public double GetSize(double price, double dir, double asset, double budget, double currency)
         {
-            var availableCurrency = Math.Max(0, currency - budget);
+            var availableCurrency = Math.Max(0, currency);
 
-            double size;
-            if (double.IsNaN(_enter) || asset * price < budget)
+            bool buy = true;
+
+            double size = 0;
+            if (double.IsNaN(_enter))
             {
                 // initial bet -> buy
-                size = availableCurrency * _DumbDcaAggresivness;
+                size = availableCurrency * _buyAgressivness;
 
                 // need to indicate sell in case the price grows, but we need to buy
                 if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
             }
-            else if (price < _enter)
-            {
-                var dist = (_enter - price) / _enter;
-                
-                //currency / price # buy power
-                var half = (availableCurrency / price + asset);
-                var hhSize = half - asset;
-
-                // sell to reduce position
-                if (half < asset)
-                {
-                    size = hhSize;
-                }
-                else
-                {
-                    // buy to lower enter price
-                    // https://www.desmos.com/calculator/na4ovcuavg
-                    // https://www.desmos.com/calculator/rkw80qbgp3
-                    // a: _ep
-                    // b: price
-                    // c: asset
-                    // d: target angle
-                    // x: size
-
-                    // calculate recommended price based on preference of cost to reduction ratio
-                    //var cost = Math.Sqrt(_ep) / _sqrtTan;
-                    var candidateSize = price;
-
-                    var norm = dist;
-                    var newSize = candidateSize;
-
-                    size = double.IsNaN(newSize) ? 0 : Math.Max(0, Math.Min(hhSize, newSize));
-                }
-            }
-            else
+            else if (price < _enter) // reduction
             {
                 // sell?
-                var dist = (price - _enter) / price;
-                var norm = dist;
-                var power = Math.Pow(norm, 4);
-                size = -asset * power;
+                size = -asset * _sellAgressivness;
+            }
+            else if (price > _enter)
+            {
+                size = -asset;
+            }
+            size = Math.Min(size, availableCurrency / price);
+
+            if (buy)
+            {
+                //Console.WriteLine("buy");
+            } 
+            else
+            {
+                //Console.WriteLine("sell");
             }
 
-            if (size > 0)
-            {
-                size = Math.Min(size, availableCurrency / price);
-            }
 
             return size;
         }
@@ -112,7 +89,8 @@
                 _ep = 0,
                 _enter = double.NaN,
 
-                _DumbDcaAggresivness = chromosome.DumbDcaAgressivness
+                _buyAgressivness = chromosome.buyAgressivness,
+                _sellAgressivness = chromosome.sellAgressivness
             };
         }
 
@@ -120,37 +98,41 @@
 
         public double Evaluate(IEnumerable<Trade> trades, double budget, long timeFrame)
         {
-            var t = trades.ToList();
-            if (!t.Any()) return 0;
+            //var t = trades.ToList();
+            //if (!t.Any()) return 0;
 
-            // continuity -> stable performance and delivery of budget extra
-            // get profit at least every 14 days
-            var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 25);
-            var gk = timeFrame / frames;
-            var lastBudgetExtra = 0d;
-            var minFitness = double.MaxValue;
+            //// continuity -> stable performance and delivery of budget extra
+            //// get profit at least every 14 days
+            //var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 25);
+            //var gk = timeFrame / frames;
+            //var lastBudgetExtra = 0d;
+            //var minFitness = double.MaxValue;
 
-            for (var i = 0; i < frames; i++)
-            {
-                var f0 = gk * i;
-                var f1 = gk * (i + 1);
-                var frameTrades = t
-                    .SkipWhile(x => x.Time < f0)
-                    .TakeWhile(x => x.Time < f1)
-                    .ToList();
+            //for (var i = 0; i < frames; i++)
+            //{
+            //    var f0 = gk * i;
+            //    var f1 = gk * (i + 1);
+            //    var frameTrades = t
+            //        .SkipWhile(x => x.Time < f0)
+            //        .TakeWhile(x => x.Time < f1)
+            //        .ToList();
 
-                var currentBudgetExtra = frameTrades.LastOrDefault()?.BudgetExtra ?? lastBudgetExtra;
-                var tradeFactor = 1; // TradeCountFactor(frameTrades);
-                var fitness = tradeFactor * (currentBudgetExtra - lastBudgetExtra);
-                if (fitness < minFitness)
-                {
-                    minFitness = fitness;
-                }
-                lastBudgetExtra = currentBudgetExtra;
-            }
+            //    var currentBudgetExtra = frameTrades.LastOrDefault()?.BudgetExtra ?? lastBudgetExtra;
+            //    var tradeFactor = 1; // TradeCountFactor(frameTrades);
+            //    var fitness = tradeFactor * (currentBudgetExtra - lastBudgetExtra);
+            //    if (fitness < minFitness)
+            //    {
+            //        minFitness = fitness;
+            //    }
+            //    lastBudgetExtra = currentBudgetExtra;
+            //}
 
-            return minFitness;
+            //return minFitness;
             //return factor * t.Last().BudgetExtra;
+
+            var t = trades.ToList();
+
+            return t.Where(x => x.Size != 0).Count();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿#define GAx    // GA, STATIC
+﻿#define GA    // GA, STATIC
 #define USD   // USD, BTC
 #define CMA // GAMMA, LEVELS, CMA
 
@@ -56,7 +56,7 @@ const double tradeRebate = 0; // 0.00025d;
 
 #if CMA
 #if GA
-Ga<EnterPriceAngleStrategy, EnterPriceAngleStrategyChromosome>();
+Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 #else
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
 {
@@ -98,7 +98,7 @@ void Ga<T,S>()
     var termination = new FitnessStagnationTermination(80);
     ThreadPool.GetAvailableThreads(out var threads, out _);
     var executor = new ExactParallelTaskExecutor(threads);
-    var population = new Population(500, 3000, strategy.GetAdamChromosome());
+    var population = new Population(100, 200, strategy.GetAdamChromosome());
     var fitness = new DynamicFitness<S>(x => Evaluate<S>(prices, x.ToRequest(), strategy.CreateInstance(x), null));
     var ga = new GeneticAlgorithm(population, fitness, selection, crossover, mutation)
     {
