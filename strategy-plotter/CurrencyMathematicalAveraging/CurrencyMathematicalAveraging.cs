@@ -10,12 +10,14 @@
         double _alpha;
         double _bravo;
         double _charlie;
+        double _delta;
 
         public CurrencyMathematicalAveraging()
         {
             _alpha = 0.17d;
             _bravo = 30d;
             _charlie = 6.5d;
+            _delta = 10d;
         }
 
         //This is what's it all about
@@ -23,8 +25,8 @@
         {
             var availableCurrency = Math.Max(0, currency);
 
-            
             double size = 0;
+
             if (double.IsNaN(_enter))
             {
                 // initial bet -> buy
@@ -32,40 +34,46 @@
             } 
             else
             {
-                var distPercentage = (Math.Abs(price - _enter) / price);
+                double distPercentage = (Math.Abs(price - _enter) / price);
                 if (distPercentage > 1) { distPercentage = 1; }
+
+                var decisionSinus = _alpha * (Math.Sqrt(distPercentage * _bravo) + Math.Sin((_charlie * distPercentage) / _delta));
+                if (decisionSinus < 0) { decisionSinus = 0; }
+
+                var assetsToHold = Math.Abs((budget * decisionSinus) / price);
 
                 //var decisionCurveBuy = ((distPercentage * (distPercentage / _buyAgressivness)) / 100);
                 //var decisionCurveSell = ((distPercentage * (distPercentage - _sellAgressivness)) / 100);
 
-                var decisionSinus = _alpha * 
-                    Math.Sqrt((distPercentage) * _bravo) + 
-                    Math.Sin(_charlie*distPercentage/2);
+                size = Math.Abs(assetsToHold - asset);
+                var pnl = (asset * price) - (asset * _enter);
 
-                var assetsToBuy = budget * decisionSinus;
-                var assetsToSell = budget * decisionSinus;
-                var heldAssets = (asset * price);
+                if (pnl < 0 && dir < 0) { size = 0; }
 
-                //Buy decisions.
-                if (dir > 0) {
-                    size = Math.Abs((assetsToBuy - heldAssets)) / price;
-                    if (size < 0) { size = 0; }
-                    //if (price > _enter) { size = 0; }
-                }
-                //Sell decisions.
-                if (dir < 0) {
-                    //if (price >= _enter) 
-                    //{ size = assetSell; }
-                    //else
-                    //{ size = 0; }
-                    size = Math.Abs((assetsToSell - heldAssets)) / price;
-                }
+                //size = size;
+                //if (size * price > currency && dir < 0) { 
+                //    //prodal se ztrátou
+                //}
+
+                //Don't sell out to zero.
+                //if (dir < 0 && size > heldAssets && currency + (asset * price) < currency)
+                //{
+                //    size = heldAssets * 0.95d;
+                //}
+
+                ////Buy decisions.
+                //if (dir > 0) {
+                //    size = assetsSize;
+                //    if (size < 0) { size = 0; }
+                //}
+                ////Sell decisions.
+                //if (dir < 0) {
+                //    size = Math.Abs((assetsToSell - heldAssets)) / price;
+                //}
             }
 
-            //Set size positive/negative, based on direction.
+            //size = Math.Min(size, availableCurrency / price);
             size = size * dir;
-            size = Math.Min(size, availableCurrency / price);
-
             return size;
         }
 
@@ -103,9 +111,9 @@
                 _ep = 0,
                 _enter = double.NaN,
 
-                _alpha = chromosome.alpha,
-                _bravo = chromosome.bravo,
-                _charlie = chromosome.charlie
+                _alpha = chromosome.Alpha,
+                _bravo = chromosome.Bravo,
+                _charlie = chromosome.Charlie
             };
         }
 
@@ -148,6 +156,23 @@
             //return t.Where(x => x.Size != 0).Count();
 
             var t = trades.ToList();
+            if (!t.Any()) return 0;
+
+            double maxCost = 0;
+            double cost = 0;
+
+            foreach (var trade in t)
+            {
+                cost += trade.Size * trade.Price;
+                if (cost > maxCost) { maxCost = cost; }
+
+                if (maxCost > budget * 0.5d)
+                {
+                    return 0;
+                }
+            }
+
+
             return t.Last().BudgetExtra * t.Where(x => x.Size != 0).Count();
         }
     }

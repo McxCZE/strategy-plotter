@@ -10,15 +10,17 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
     {
         public CurrencyMathematicalAveragingChromosome() : base(false)
         {
-            alpha = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.15, 0.55)); //0.15-0.55
-            bravo = Factory.Create(() => RandomizationProvider.Current.GetDouble(5, 30)); //5-30
-            charlie = Factory.Create(() => RandomizationProvider.Current.GetDouble(6.5, 10)); //6.5-10
+            Alpha = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 1)); //0.15-0.55
+            Bravo = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 50)); //5-30
+            Charlie = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 50)); //6.5-10
+            Delta = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 10)); //6.5-10
             FinalizeGenes();
         }
 
-        public GeneWrapper<double> alpha { get; }
-        public GeneWrapper<double> bravo { get; }
-        public GeneWrapper<double> charlie { get; }
+        public GeneWrapper<double> Alpha { get; }
+        public GeneWrapper<double> Bravo { get; }
+        public GeneWrapper<double> Charlie { get; }
+        public GeneWrapper<double> Delta { get; }
 
         public override IChromosome CreateNew() => new CurrencyMathematicalAveragingChromosome();
 
@@ -28,9 +30,10 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
             res.Strategy = new CurrencyMathematicalAveragingConfig
             {
                 Type = "cma",
-                alpha = alpha,
-                bravo = bravo,
-                charlie = charlie,
+                Alpha = Alpha,
+                Bravo = Bravo,
+                Charlie = Charlie,
+                Delta = Delta,
                 Backtest = false
             };
             return res;
@@ -45,9 +48,10 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 s = JsonSerializer.Deserialize<CurrencyMathematicalAveragingConfig>(config.Strategy.ToString());
             }
 
-            alpha.Replace(s.alpha);
-            bravo.Replace(s.bravo);
-            charlie.Replace(s.charlie);
+            Alpha.Replace(s.Alpha);
+            Bravo.Replace(s.Bravo);
+            Charlie.Replace(s.Charlie);
+            Delta.Replace(s.Delta);
         }
     }
 }

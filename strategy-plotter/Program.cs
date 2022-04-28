@@ -1,4 +1,4 @@
-﻿#define GAx    // GA, STATIC
+﻿#define GA    // GA, STATIC
 #define USD   // USD, BTC
 #define CMA // GAMMA, LEVELS, CMA
 
@@ -26,7 +26,7 @@ ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 #region GA data
 //var filename = "KUCOIN_XDB-USDT_21.04.2021_21.04.2022.csv";
-var filename = "FTX_ALPHA-PERP_01012021_14032022.csv";
+var filename = "FTX_ALPHA-PERP_21.03.2021_21.04.2022.csv";
 //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
 //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
 //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
@@ -60,9 +60,10 @@ Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 #else
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
 {
-    x.alpha.Replace(0.24d);
-    x.bravo.Replace(16d);
-    x.charlie.Replace(7.5d);
+    x.Alpha.Replace(0.24d);
+    x.Bravo.Replace(16d);
+    x.Charlie.Replace(7.5d);
+    x.Delta.Replace(10d);
 });
 #endif
 #elif GAMMA
