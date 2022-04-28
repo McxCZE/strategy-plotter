@@ -7,11 +7,14 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
         [JsonPropertyName("type")]
         public string Type { get; set; }
 
-        [JsonPropertyName("buyAggressivness")]
-        public double buyAgressivness { get; set; }
+        [JsonPropertyName("alpha")]
+        public double alpha { get; set; }
 
-        [JsonPropertyName("sellAggressivness")]
-        public double sellAggressivness { get; set; }
+        [JsonPropertyName("bravo")]
+        public double bravo { get; set; }
+
+        [JsonPropertyName("charlie")]
+        public double charlie { get; set; }
 
         [JsonPropertyName("backtest")]
         public bool Backtest { get; set; }

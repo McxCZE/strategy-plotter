@@ -10,13 +10,15 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
     {
         public CurrencyMathematicalAveragingChromosome() : base(false)
         {
-            buyAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 100)); //0-1
-            sellAgressivness = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.01, 100)); //0-1
+            alpha = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.15, 0.55)); //0.15-0.55
+            bravo = Factory.Create(() => RandomizationProvider.Current.GetDouble(5, 30)); //5-30
+            charlie = Factory.Create(() => RandomizationProvider.Current.GetDouble(6.5, 10)); //6.5-10
             FinalizeGenes();
         }
 
-        public GeneWrapper<double> buyAgressivness { get; }
-        public GeneWrapper<double> sellAgressivness { get; }
+        public GeneWrapper<double> alpha { get; }
+        public GeneWrapper<double> bravo { get; }
+        public GeneWrapper<double> charlie { get; }
 
         public override IChromosome CreateNew() => new CurrencyMathematicalAveragingChromosome();
 
@@ -26,8 +28,9 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
             res.Strategy = new CurrencyMathematicalAveragingConfig
             {
                 Type = "cma",
-                buyAgressivness = buyAgressivness,
-                sellAggressivness = sellAgressivness,
+                alpha = alpha,
+                bravo = bravo,
+                charlie = charlie,
                 Backtest = false
             };
             return res;
@@ -42,8 +45,9 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 s = JsonSerializer.Deserialize<CurrencyMathematicalAveragingConfig>(config.Strategy.ToString());
             }
 
-            buyAgressivness.Replace(s.buyAgressivness);
-            sellAgressivness.Replace(s.sellAggressivness);
+            alpha.Replace(s.alpha);
+            bravo.Replace(s.bravo);
+            charlie.Replace(s.charlie);
         }
     }
 }

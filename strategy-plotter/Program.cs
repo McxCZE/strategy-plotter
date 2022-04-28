@@ -26,7 +26,7 @@ ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 #region GA data
 //var filename = "KUCOIN_XDB-USDT_21.04.2021_21.04.2022.csv";
-var filename = "FTX_ALPHA-PERP_21.03.2021_21.04.2022.csv";
+var filename = "FTX_ALPHA-PERP_01012021_14032022.csv";
 //var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
 //var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
 //var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";

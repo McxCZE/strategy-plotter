@@ -7,13 +7,15 @@
         double _enter = double.NaN;
 
         // Settings
-        double _buyAgressivness;
-        double _sellAgressivness;
+        double _alpha;
+        double _bravo;
+        double _charlie;
 
         public CurrencyMathematicalAveraging()
         {
-            _buyAgressivness = 0.1d;
-            _sellAgressivness = 0.1d;
+            _alpha = 0.17d;
+            _bravo = 30d;
+            _charlie = 6.5d;
         }
 
         //This is what's it all about
@@ -30,14 +32,18 @@
             } 
             else
             {
-                var distPercentage = (Math.Abs(price - _enter) / price) * 100 ;
-                if (distPercentage > 100) { distPercentage = 100; }
+                var distPercentage = (Math.Abs(price - _enter) / price);
+                if (distPercentage > 1) { distPercentage = 1; }
 
-                var decisionCurveBuy = ((distPercentage * (distPercentage / _buyAgressivness)) / 100);
-                var decisionCurveSell = ((distPercentage * (distPercentage - _sellAgressivness)) / 100);
+                //var decisionCurveBuy = ((distPercentage * (distPercentage / _buyAgressivness)) / 100);
+                //var decisionCurveSell = ((distPercentage * (distPercentage - _sellAgressivness)) / 100);
 
-                var assetsToBuy = budget * decisionCurveBuy;
-                var assetsToSell = budget * decisionCurveSell;
+                var decisionSinus = _alpha * 
+                    Math.Sqrt((distPercentage) * _bravo) + 
+                    Math.Sin(_charlie*(distPercentage));
+
+                var assetsToBuy = budget * decisionSinus;
+                var assetsToSell = budget * decisionSinus;
                 var heldAssets = (asset * price);
 
                 //Buy decisions.
@@ -97,8 +103,9 @@
                 _ep = 0,
                 _enter = double.NaN,
 
-                _buyAgressivness = chromosome.buyAgressivness,
-                _sellAgressivness = chromosome.sellAgressivness
+                _alpha = chromosome.alpha,
+                _bravo = chromosome.bravo,
+                _charlie = chromosome.charlie
             };
         }
 
@@ -141,7 +148,7 @@
             //return t.Where(x => x.Size != 0).Count();
 
             var t = trades.ToList();
-            return t.Last().BudgetExtra;
+            return t.Last().BudgetExtra * t.Where(x => x.Size != 0).Count();
         }
     }
 }
