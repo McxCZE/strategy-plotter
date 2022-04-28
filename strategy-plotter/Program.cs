@@ -1,4 +1,4 @@
-﻿#define GA    // GA, STATIC
+﻿#define GAx    // GA, STATIC
 #define USD   // USD, BTC
 #define CMA // GAMMA, LEVELS, CMA
 
@@ -60,8 +60,9 @@ Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 #else
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
 {
-    x.buyAgressivness.Replace(15d);
-    x.sellAgressivness.Replace(2.5d);
+    x.alpha.Replace(0.24d);
+    x.bravo.Replace(16d);
+    x.charlie.Replace(7.5d);
 });
 #endif
 #elif GAMMA

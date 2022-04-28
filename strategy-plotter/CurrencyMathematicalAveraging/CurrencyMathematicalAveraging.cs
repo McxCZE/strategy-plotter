@@ -40,7 +40,7 @@
 
                 var decisionSinus = _alpha * 
                     Math.Sqrt((distPercentage) * _bravo) + 
-                    Math.Sin(_charlie*(distPercentage));
+                    Math.Sin(_charlie*distPercentage/2);
 
                 var assetsToBuy = budget * decisionSinus;
                 var assetsToSell = budget * decisionSinus;
