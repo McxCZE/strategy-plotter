@@ -8,12 +8,12 @@
         private readonly List<Level> _levels = new();
 
         // Settings
-        double _levelRange = 0.1; // Price diff in %
-        double _levelRangeOverlap = 0.01; // Overlap of multiple levels
+        double _levelRange = 0.1; // Level depth in % of price change
+        //double _levelRangeOverlap = 0.01; // Overlap of multiple levels
         double _initialBetDistance = 0.25;
         int _maxLevels = 10; // Distribution of budget
         int _mitigationLevel = 5; // From which level to start mitigate position
-        double _mitigationStrength = 1; // 0-1% of normalized profit to use to cover for position on higher levels
+        double _mitigationStrength = 1; // 0-100% of normalized profit to use to cover for position on higher levels
 
         public IStrategyPrototype<LevelsStrategyChromosome> CreateInstance(LevelsStrategyChromosome chromosome)
         {
@@ -115,7 +115,7 @@
                 size = 0;
                 foreach (var level in _levels.Where(x => price > x.Anchor))
                 {
-                    size += level.Asset * Math.Min(1d, (price - level.Anchor) / level.Anchor);
+                    size -= level.Asset * Math.Min(1d, (price - level.Anchor) / level.Anchor);
                 }
             }
 
@@ -129,7 +129,7 @@
             if (size > 0)
             {
                 // Buy -> update existing level or create a single level
-                var level = _levels.Where(x => price < x.Anchor && price >= x.Range.Min).FirstOrDefault();
+                var level = _levels.Where(x => price <= x.Anchor && price >= x.Range.Min).FirstOrDefault();
                 if (level == null)
                 {
                     var bottom = _levels.LastOrDefault(x => price < x.Range.Min);
@@ -167,13 +167,11 @@
                     };
                 }
             }
-            else
+            else if (size < 0)
             {
                 // Sell
-
-                // TODO ... 
                 var remainingSize = -size;
-                foreach (var level in _levels.Where(x => price > x.Anchor).Reverse().ToList())
+                foreach (var level in _levels.Where(x => price >= x.Anchor).Reverse().ToList())
                 {
                     var currentSize = Math.Min(level.Asset, remainingSize);
 
@@ -184,13 +182,13 @@
                         Level toRedistribute = null;
                         while (profit > 0 && (toRedistribute = _levels.FirstOrDefault(x => price < x.Range.Min)) != null)
                         {
-                            var diffPrice = toRedistribute.Enter - price; //todo: price should be anchor of below level
+                            var belowAnchor = toRedistribute.Anchor / (1 + _levelRange);
+                            var diffPrice = toRedistribute.Enter - belowAnchor;
                             var assetsToCover = profit / diffPrice;
                             var covered = Math.Min(assetsToCover, toRedistribute.Asset);
                             profit -= diffPrice * covered;
 
-                            // todo: lookup one level below or create a new one
-                            // todo: add covered @ 
+                            OnTrade(belowAnchor, asset, covered, currency);
 
                             if (assetsToCover > toRedistribute.Asset)
                             {
