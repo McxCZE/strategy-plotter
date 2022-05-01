@@ -7,13 +7,13 @@
         double _enter = double.NaN;
 
         // Settings
-        double _buyStrength;
-        double _sellStrength;
+        double _buyStrength; // scaling 0.001
+        double _sellStrength; // same
 
         public CurrencyMathematicalAveraging()
         {
-            _buyStrength = 0.17d;
-            _sellStrength = 0.17d;
+            _buyStrength = 0.03d; //default params. (min: 0.001, max : 1)
+            _sellStrength = 1.00d; //default params. (min: 0.001, max : 1)
         }
 
         //This is what's it all about
@@ -37,8 +37,6 @@
                 double buyStrength = distPercentage * (distPercentage / _buyStrength);
                 double sellStrength = distPercentage * (distPercentage / _sellStrength);
 
-                //sinusCalculation = Math.Sin((Math.Sqrt(distPercentage) * distPercentage / Math.PI) * 9) / 1; //_buyStrength
-
                 if (buyStrength < 0) buyStrength = 0;
                 else if (buyStrength > 1) buyStrength = 1;
                 else if (double.IsNaN(buyStrength)) buyStrength = 0;
@@ -50,33 +48,11 @@
                 if (dir < 0) size = Math.Abs(assetsToHoldWhenSelling - asset);
 
                 if (asset > assetsToHoldWhenBuying && dir > 0) size = 0; // Do not move assets if direction is sell, (result of Absolute calculation).
-
                 var pnl = (asset * price) - (asset * _enter);
                 if (pnl < 0 && dir < 0) { size = 0; }
 
                 size = size * dir;
-
-                #region AleshovaSilenaStrategie
-                //double distPercentage = (Math.Abs(price - _enter) / price);
-                //if (distPercentage > 1) { distPercentage = 1; }
-
-                //double heldAssets = asset * price; //Hodnota mych assetu na dane cene;
-                ////double heldAssetsEnter = asset * _enter; //Hodnota mych assetu na enter price;
-
-                //if (price < 40000d)
-                //{
-                //    size = ((availableCurrency * price) * distPercentage);
-                //    if (dir < 0) { size = 0; }
-                //}
-
-                //if (price > 44000d)
-                //{
-                //    size = -1 * ((budget / price) / 3);
-                //    if (dir > 0) { size = 0; }
-                //}
-                #endregion
             }
-            //size = Math.Min(size, availableCurrency / price);
             return size;
         }
 
@@ -123,6 +99,7 @@
 
         public double Evaluate(IEnumerable<Trade> trades, double budget, long timeFrame)
         {
+            #region - Inteligent GA
             //var t = trades.ToList();
             //if (!t.Any()) return 0;
 
@@ -164,6 +141,7 @@
             //}
 
             //return minFitness;
+            #endregion
 
             #region - DumbGA
             var t = trades.ToList();

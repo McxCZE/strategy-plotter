@@ -1,4 +1,4 @@
-﻿#define GA   // GA, STATIC
+﻿#define GAx   // GA, STATIC
 #define USD   // USD, BTC
 #define CMA // GAMMA, LEVELS, CMA
 
@@ -56,7 +56,7 @@ var filename = "BINANCE_BTCUSDT_01.01.2019_01.01.2020.csv";
 Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 
 #else
-//var filename = "FTX_buyStrength-PERP_21.03.2021_21.04.2022.csv"; //Check-Data
+//var filename = "FTX_ALPHA-PERP_21.03.2021_21.10.2021.csv"; //Check-Data
 var filename = "BINANCE_BTCUSDT_01.01.2021_30.04.2022.csv";
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x => {
     //x.BuyStrength.Replace(0.01d);
