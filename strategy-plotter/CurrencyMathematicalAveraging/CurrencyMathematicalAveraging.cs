@@ -7,17 +7,13 @@
         double _enter = double.NaN;
 
         // Settings
-        double _alpha;
-        double _bravo;
-        double _charlie;
-        double _delta;
+        double _buyStrength;
+        double _sellStrength;
 
         public CurrencyMathematicalAveraging()
         {
-            _alpha = 0.17d;
-            _bravo = 30d;
-            _charlie = 6.5d;
-            _delta = 10d;
+            _buyStrength = 0.17d;
+            _sellStrength = 0.17d;
         }
 
         //This is what's it all about
@@ -30,50 +26,57 @@
             if (double.IsNaN(_enter))
             {
                 // initial bet -> buy
-                size = (availableCurrency * price) * 0.05;
-            } 
+                size = (budget / price) * 0.05;
+            }
             else
             {
-                double distPercentage = (Math.Abs(price - _enter) / price);
-                if (distPercentage > 1) { distPercentage = 1; }
 
-                var decisionSinus = _alpha * (Math.Sqrt(distPercentage * _bravo) + Math.Sin((_charlie * distPercentage) / _delta));
-                if (decisionSinus < 0) { decisionSinus = 0; }
+                double distPercentage = Math.Abs(price - _enter) / price; // Divided by 2 means, 0.5 = 100% distPercentage, 3 eq 0.25 = 100% dist percentage.
+                if (distPercentage > 1) distPercentage = 1;
 
-                var assetsToHold = Math.Abs((budget * decisionSinus) / price);
+                double buyStrength = distPercentage * (distPercentage / _buyStrength);
+                double sellStrength = distPercentage * (distPercentage / _sellStrength);
 
-                //var decisionCurveBuy = ((distPercentage * (distPercentage / _buyAgressivness)) / 100);
-                //var decisionCurveSell = ((distPercentage * (distPercentage - _sellAgressivness)) / 100);
+                //sinusCalculation = Math.Sin((Math.Sqrt(distPercentage) * distPercentage / Math.PI) * 9) / 1; //_buyStrength
 
-                size = Math.Abs(assetsToHold - asset);
+                if (buyStrength < 0) buyStrength = 0;
+                else if (buyStrength > 1) buyStrength = 1;
+                else if (double.IsNaN(buyStrength)) buyStrength = 0;
+
+                var assetsToHoldWhenBuying = Math.Abs(budget * buyStrength / price);
+                var assetsToHoldWhenSelling = Math.Abs(budget * sellStrength / price);
+
+                if (dir > 0) size = Math.Abs(assetsToHoldWhenBuying - asset);
+                if (dir < 0) size = Math.Abs(assetsToHoldWhenSelling - asset);
+
+                if (asset > assetsToHoldWhenBuying && dir > 0) size = 0; // Do not move assets if direction is sell, (result of Absolute calculation).
+
                 var pnl = (asset * price) - (asset * _enter);
-
                 if (pnl < 0 && dir < 0) { size = 0; }
 
-                //size = size;
-                //if (size * price > currency && dir < 0) { 
-                //    //prodal se ztrátou
-                //}
+                size = size * dir;
 
-                //Don't sell out to zero.
-                //if (dir < 0 && size > heldAssets && currency + (asset * price) < currency)
+                #region AleshovaSilenaStrategie
+                //double distPercentage = (Math.Abs(price - _enter) / price);
+                //if (distPercentage > 1) { distPercentage = 1; }
+
+                //double heldAssets = asset * price; //Hodnota mych assetu na dane cene;
+                ////double heldAssetsEnter = asset * _enter; //Hodnota mych assetu na enter price;
+
+                //if (price < 40000d)
                 //{
-                //    size = heldAssets * 0.95d;
+                //    size = ((availableCurrency * price) * distPercentage);
+                //    if (dir < 0) { size = 0; }
                 //}
 
-                ////Buy decisions.
-                //if (dir > 0) {
-                //    size = assetsSize;
-                //    if (size < 0) { size = 0; }
+                //if (price > 44000d)
+                //{
+                //    size = -1 * ((budget / price) / 3);
+                //    if (dir > 0) { size = 0; }
                 //}
-                ////Sell decisions.
-                //if (dir < 0) {
-                //    size = Math.Abs((assetsToSell - heldAssets)) / price;
-                //}
+                #endregion
             }
-
             //size = Math.Min(size, availableCurrency / price);
-            size = size * dir;
             return size;
         }
 
@@ -111,9 +114,8 @@
                 _ep = 0,
                 _enter = double.NaN,
 
-                _alpha = chromosome.Alpha,
-                _bravo = chromosome.Bravo,
-                _charlie = chromosome.Charlie
+                _buyStrength = chromosome.BuyStrength,
+                _sellStrength = chromosome.SellStrength
             };
         }
 
@@ -150,14 +152,23 @@
             //    lastBudgetExtra = currentBudgetExtra;
             //}
 
+            //double maxCost = 0;
+            //double cost = 0;
+
+            //foreach (var trade in t)
+            //{
+            //    cost += trade.Size * trade.Price;
+            //    if (cost > maxCost) { maxCost = cost; }
+
+            //    if (maxCost > budget * 0.5d) { return 0; }
+            //}
+
             //return minFitness;
 
-            //var t = trades.ToList();
-            //return t.Where(x => x.Size != 0).Count();
-
+            #region - DumbGA
             var t = trades.ToList();
-            if (!t.Any()) return 0;
-
+            if (!t.Any()) return 0;            
+            
             double maxCost = 0;
             double cost = 0;
 
@@ -166,14 +177,11 @@
                 cost += trade.Size * trade.Price;
                 if (cost > maxCost) { maxCost = cost; }
 
-                if (maxCost > budget * 0.5d)
-                {
-                    return 0;
-                }
+                if (maxCost > budget * 0.75d) { return 0; }
             }
 
-
-            return t.Last().BudgetExtra * t.Where(x => x.Size != 0).Count();
+            return t.Last().BudgetExtra;
+            #endregion
         }
     }
 }

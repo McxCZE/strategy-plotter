@@ -10,17 +10,14 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
     {
         public CurrencyMathematicalAveragingChromosome() : base(false)
         {
-            Alpha = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 1)); //0.15-0.55
-            Bravo = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 50)); //5-30
-            Charlie = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 50)); //6.5-10
-            Delta = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 10)); //6.5-10
+            BuyStrength = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.001, 1));
+            SellStrength = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.001, 1));
             FinalizeGenes();
         }
 
-        public GeneWrapper<double> Alpha { get; }
-        public GeneWrapper<double> Bravo { get; }
-        public GeneWrapper<double> Charlie { get; }
-        public GeneWrapper<double> Delta { get; }
+        public GeneWrapper<double> BuyStrength { get; }
+
+        public GeneWrapper<double> SellStrength { get; }
 
         public override IChromosome CreateNew() => new CurrencyMathematicalAveragingChromosome();
 
@@ -30,10 +27,8 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
             res.Strategy = new CurrencyMathematicalAveragingConfig
             {
                 Type = "cma",
-                Alpha = Alpha,
-                Bravo = Bravo,
-                Charlie = Charlie,
-                Delta = Delta,
+                BuyStrength = BuyStrength,
+                SellStrength = SellStrength,
                 Backtest = false
             };
             return res;
@@ -48,10 +43,8 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 s = JsonSerializer.Deserialize<CurrencyMathematicalAveragingConfig>(config.Strategy.ToString());
             }
 
-            Alpha.Replace(s.Alpha);
-            Bravo.Replace(s.Bravo);
-            Charlie.Replace(s.Charlie);
-            Delta.Replace(s.Delta);
+            BuyStrength.Replace(s.BuyStrength);
+            SellStrength.Replace(s.SellStrength);
         }
     }
 }

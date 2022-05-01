@@ -1,4 +1,4 @@
-﻿#define GA    // GA, STATIC
+﻿#define GA   // GA, STATIC
 #define USD   // USD, BTC
 #define CMA // GAMMA, LEVELS, CMA
 
@@ -25,13 +25,7 @@ using System.Text.Json.Serialization;
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 #region GA data
-//var filename = "KUCOIN_XDB-USDT_21.04.2021_21.04.2022.csv";
-var filename = "FTX_ALPHA-PERP_21.03.2021_21.04.2022.csv";
-//var filename = "KUCOIN_VRA-BTC_01.04.2021_01.04.2022.csv";
-//var filename = "KUCOIN_HTR-BTC_23.03.2021_23.03.2022.csv";
-//var filename = "FTX_DOGE-PERP_14.02.2021_14.02.2022.csv";
-
-var outputSuffix = "-ALPHA-CMA-";
+var outputSuffix = "-BTC-CMA-";
 #endregion
 
 #region Configuration for static test
@@ -56,15 +50,26 @@ const double tradeRebate = 0; // 0.00025d;
 
 #if CMA
 #if GA
+
+//var filename = "FTX_buyStrength-PERP_21.03.2021_21.10.2021.csv"; //Train-Data
+var filename = "BINANCE_BTCUSDT_01.01.2019_01.01.2020.csv";
 Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
+
 #else
-StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
-{
-    x.Alpha.Replace(0.24d);
-    x.Bravo.Replace(16d);
-    x.Charlie.Replace(7.5d);
-    x.Delta.Replace(10d);
+//var filename = "FTX_buyStrength-PERP_21.03.2021_21.04.2022.csv"; //Check-Data
+var filename = "BINANCE_BTCUSDT_01.01.2021_30.04.2022.csv";
+StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x => {
+    //x.BuyStrength.Replace(0.01d);
+    //x.SellStrength.Replace(0.01d);
 });
+
+//StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
+//{
+//    x.buyStrength.Replace(0.24d);
+//    x.Bravo.Replace(16d);
+//    x.Charlie.Replace(7.5d);
+//    x.Delta.Replace(10d);
+//});
 #endif
 #elif GAMMA
 #if GA
@@ -101,7 +106,7 @@ void Ga<T,S>()
     var termination = new FitnessStagnationTermination(80);
     ThreadPool.GetAvailableThreads(out var threads, out _);
     var executor = new ExactParallelTaskExecutor(threads);
-    var population = new Population(250, 1250, strategy.GetAdamChromosome());
+    var population = new Population(200, 500, strategy.GetAdamChromosome());
     var fitness = new DynamicFitness<S>(x => Evaluate<S>(prices, x.ToRequest(), strategy.CreateInstance(x), null));
     var ga = new GeneticAlgorithm(population, fitness, selection, crossover, mutation)
     {
