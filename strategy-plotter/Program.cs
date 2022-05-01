@@ -56,8 +56,8 @@ var filename = "BINANCE_BTCUSDT_01.01.2019_01.01.2020.csv";
 Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 
 #else
-//var filename = "FTX_ALPHA-PERP_21.03.2021_21.10.2021.csv"; //Check-Data
-var filename = "BINANCE_BTCUSDT_01.01.2021_30.04.2022.csv";
+var filename = "FTX_ALPHA-PERP_21.03.2021_21.10.2021.csv"; //Check-Data
+//var filename = "BINANCE_BTCUSDT_01.01.2021_30.04.2022.csv";
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x => {
     //x.BuyStrength.Replace(0.01d);
     //x.SellStrength.Replace(0.01d);
