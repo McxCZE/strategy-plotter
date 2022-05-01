@@ -27,6 +27,8 @@
             {
                 // initial bet -> buy
                 size = (budget / price) * 0.05;
+
+                if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
             }
             else
             {
