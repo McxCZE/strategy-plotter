@@ -26,7 +26,7 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
             var res = base.ToConfig();
             res.Strategy = new CurrencyMathematicalAveragingConfig
             {
-                Type = "cma",
+                Type = "mathematical_cost_averaging",
                 BuyStrength = BuyStrength,
                 SellStrength = SellStrength,
                 Backtest = false
