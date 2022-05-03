@@ -27,37 +27,57 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
             if (double.IsNaN(_enter) || (asset * price) < (budget * 0.01))
             {
                 // initial bet -> buy
-                size = (budget / price) * 0.05;
+                size = (budget / price) * 0.02;
 
                 if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
             }
             else
             {
+                double distEnter = 0;
+                var pnl = (asset * price) - (asset * _enter);
 
-                double distPercentage = Math.Abs(price - _enter) / price; // Divided by 2 means, 0.5 = 100% distPercentage, 3 eq 0.25 = 100% dist percentage.
-                if (distPercentage > 1) distPercentage = 1;
+                if (_enter > price) { distEnter = (_enter - price) / price; }
+                if (_enter < price) { distEnter = (price - _enter) / price; }
 
-                double buyStrength = distPercentage * (distPercentage / _buyStrength);
-                double sellStrength = distPercentage * (distPercentage / _sellStrength);
+
+                if (distEnter > 1) distEnter = 1;
+
+                //Parabola
+                double buyStrength = Math.Pow(distEnter, 2) / (1 - _buyStrength);
+                double sellStrength = Math.Pow(distEnter, 2) / (1 - _sellStrength);
 
                 if (buyStrength < 0) buyStrength = 0;
-                else if (buyStrength > 1) buyStrength = 1;
-                else if (double.IsNaN(buyStrength)) buyStrength = 0;
+                if (buyStrength > 1) buyStrength = 1;
+                if (double.IsNaN(buyStrength)) buyStrength = 0;
 
-                var assetsToHoldWhenBuying = Math.Abs((budget * buyStrength) / price);
-                var assetsToHoldWhenSelling = Math.Abs((budget * sellStrength) / price);
+                if (sellStrength < 0) sellStrength = 0;
+                if (sellStrength > 1) sellStrength = 1;
+                if (double.IsNaN(sellStrength)) sellStrength = 0;
 
-                if (dir > 0) size = Math.Abs(assetsToHoldWhenBuying - asset);
-                if (dir < 0) size = Math.Abs(assetsToHoldWhenSelling - asset);
+                double assetsToHoldWhenBuying = (budget * buyStrength) / _enter;
+                double assetsToHoldWhenSelling = (budget * sellStrength) / _enter;
 
-                // if assets that I currently hold are bigger, then the assets I should be holding, therefore "selling", when
-                // direction is bottom, do not change, and vice versa.
-                if (asset > assetsToHoldWhenBuying && dir > 0) size = 0;
-                if (asset < assetsToHoldWhenSelling && dir < 0) size = 0;
-                var pnl = (asset * price) - (asset * _enter);
+
+
+                if (dir > 0 && _enter > price) 
+                { 
+                    size = assetsToHoldWhenBuying - asset;
+                    if (size < 0) { size = 0; } //Do not buy;
+                    if (size * price > currency) { size = currency / price; }
+                }
+
+                if (dir < 0 && _enter < price)
+                {
+                    size = assetsToHoldWhenSelling * -1; // Tady to je rozprcany, neumim prodavat.
+                    if (asset - assetsToHoldWhenSelling > 0) { 
+                        size = asset * -1; 
+                    } //Sell everything then;
+                    //if ((size * -1) > asset) { size = asset * -1; }
+                }
+
                 if (pnl < 0 && dir < 0) { size = 0; }
 
-                size = size * dir;
+                size = size;
             }
             return size;
         }
@@ -154,32 +174,47 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
 
             //Cut out useless backtests.
             if (!t.Any()) return 0;
+            if (t.Where(x => x.Currency < (budget * 0.75d)).Count() > 0) return 0;
 
-            //double tPerDay = t.Where(x => x.Size != 0).Count() / ((t.Last().Time - t.First().Time) / 86400000d);
-            //if (tPerDay < 5) return 0;
+            var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 14);
+            var gk = timeFrame / frames;
+            var minFitness = double.MaxValue;
 
-            double maxCost = 0;
-            double cost = 0;
-            foreach (var trade in t)
+            for (var i = 0; i < frames; i++)
             {
-                cost += trade.Size * trade.Price;
-                if (cost > maxCost) { maxCost = cost; }
+                var f0 = gk * i;
+                var f1 = gk * (i + 1);
+                var frameTrades = t
+                    .SkipWhile(x => x.Time < f0)
+                    .TakeWhile(x => x.Time < f1)
+                    .ToList();
+                var ftCount = frameTrades.Count();
+                double alertRatio = 1;
 
-                if (maxCost > budget * 0.70d) { 
-                    return 0;
+                double profit = frameTrades.LastOrDefault()?.BudgetExtra ?? 0;
+                double backtestInterval = 25;
+
+                if (ftCount != 0) {
+                    alertRatio = 1 - (frameTrades.Where(x => x.Size == 0).Count() / frameTrades.Count());
+                };
+
+                double sideA = backtestInterval - (backtestInterval * (alertRatio / 2));
+                double sideB = profit;
+                double fitnessAngle = Math.Atan2(sideB, sideA) * 180.0d / Math.PI;
+
+                var fitness = fitnessAngle;
+                if (fitness < minFitness)
+                {
+                    minFitness = fitness;
                 }
             }
-            //
 
-            double profit = t.Last().BudgetExtra;
-            double backtestInterval = (t.Last().Time - t.First().Time) / 86400000d;
-            double alertRatio = 1 - (t.Where(x => x.Size == 0).Count() / t.Count());
+            return minFitness;
+#else
+            var t = trades.ToList();
+            if (!t.Any()) return 0;
 
-            double sideA = backtestInterval - (backtestInterval * (alertRatio / 2));
-            double sideB = profit;
-            double fitnessAngle = Math.Atan2(sideB, sideA) * 180.0d / Math.PI;
-
-            return fitnessAngle;
+            return t.Where(x => x.Size != 0).Count();
 #endif
         }
     }

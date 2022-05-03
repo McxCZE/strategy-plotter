@@ -1,4 +1,4 @@
-﻿#define GA  // GA, STATIC
+﻿#define GAx // GA, STATIC
 #define USD   // USD, BTC
 #define CMA // GAMMA, LEVELS, CMA
 
@@ -51,16 +51,14 @@ const double tradeRebate = 0; // 0.00025d;
 #if CMA
 #if GA
 
-//var filename = "FTX_buyStrength-PERP_21.03.2021_21.10.2021.csv"; //Train-Data
-var filename = "KUCOIN_ADA-USDT_01.01.2021_01.01.2022.csv";
+var filename = "KUCOIN_ADA-USDT_01.01.2021_03.05.2022.csv"; //Train-Data
 Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 
 #else
-//var filename = "FTX_ALPHA-PERP_21.03.2021_21.10.2021.csv"; //Check-Data
-var filename = "BINANCE_BTCUSDT_01.01.2021_30.04.2022.csv";
+var filename = "KUCOIN_ADA-USDT_01.01.2021_03.05.2022.csv";
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x => {
-    //x.BuyStrength.Replace(0.01d);
-    //x.SellStrength.Replace(0.01d);
+    x.BuyStrength.Replace(0.5d);
+    x.SellStrength.Replace(0.5d);
 });
 
 //StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
