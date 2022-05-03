@@ -1,4 +1,5 @@
-﻿namespace strategy_plotter.CurrencyMathematicalAveraging
+﻿#define Triangle // Continuous, Dumb, Triangle
+namespace strategy_plotter.CurrencyMathematicalAveraging
 {
     class CurrencyMathematicalAveraging : IStrategyPrototype<CurrencyMathematicalAveragingChromosome>
     {
@@ -23,7 +24,7 @@
 
             double size = 0;
 
-            if (double.IsNaN(_enter))
+            if (double.IsNaN(_enter) || (asset * price) < (budget * 0.01))
             {
                 // initial bet -> buy
                 size = (budget / price) * 0.05;
@@ -43,13 +44,16 @@
                 else if (buyStrength > 1) buyStrength = 1;
                 else if (double.IsNaN(buyStrength)) buyStrength = 0;
 
-                var assetsToHoldWhenBuying = Math.Abs(budget * buyStrength / price);
-                var assetsToHoldWhenSelling = Math.Abs(budget * sellStrength / price);
+                var assetsToHoldWhenBuying = Math.Abs((budget * buyStrength) / price);
+                var assetsToHoldWhenSelling = Math.Abs((budget * sellStrength) / price);
 
                 if (dir > 0) size = Math.Abs(assetsToHoldWhenBuying - asset);
                 if (dir < 0) size = Math.Abs(assetsToHoldWhenSelling - asset);
 
-                if (asset > assetsToHoldWhenBuying && dir > 0) size = 0; // Do not move assets if direction is sell, (result of Absolute calculation).
+                // if assets that I currently hold are bigger, then the assets I should be holding, therefore "selling", when
+                // direction is bottom, do not change, and vice versa.
+                if (asset > assetsToHoldWhenBuying && dir > 0) size = 0;
+                if (asset < assetsToHoldWhenSelling && dir < 0) size = 0;
                 var pnl = (asset * price) - (asset * _enter);
                 if (pnl < 0 && dir < 0) { size = 0; }
 
@@ -60,22 +64,7 @@
 
         public double GetCenterPrice(double price, double asset, double budget, double currency)
         {
-            return price;
-
-            //if (double.IsNaN(_enter) || (asset * price) < budget * _minAssetPercOfBudget)
-            //{
-            //    return price;
-            //}
-
-            //var availableCurrency = Math.Max(0, currency - (budget * _dipRescuePercOfBudget));
-            //var dist = (_enter - price) / _enter;
-            //if (dist >= _dipRescueEnterPriceDistance)
-            //{
-            //    // Unblock full currency
-            //    availableCurrency = currency;
-            //}
-
-            //return Math.Min(_enter, availableCurrency * _reductionMidpoint / asset / (1-_reductionMidpoint));
+            return price; 
         }
 
         public void OnTrade(double price, double asset, double size, double currency)
@@ -101,54 +90,37 @@
 
         public double Evaluate(IEnumerable<Trade> trades, double budget, long timeFrame)
         {
-            #region - Inteligent GA
-            //var t = trades.ToList();
-            //if (!t.Any()) return 0;
 
-            //// continuity -> stable performance and delivery of budget extra
-            //// get profit at least every 14 days
-            //var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 25);
-            //var gk = timeFrame / frames;
-            //var lastBudgetExtra = 0d;
-            //var minFitness = double.MaxValue;
-
-            //for (var i = 0; i < frames; i++)
-            //{
-            //    var f0 = gk * i;
-            //    var f1 = gk * (i + 1);
-            //    var frameTrades = t
-            //        .SkipWhile(x => x.Time < f0)
-            //        .TakeWhile(x => x.Time < f1)
-            //        .ToList();
-
-            //    var currentBudgetExtra = frameTrades.LastOrDefault()?.BudgetExtra ?? lastBudgetExtra;
-            //    var tradeFactor = 1; // TradeCountFactor(frameTrades);
-            //    var fitness = tradeFactor * (currentBudgetExtra - lastBudgetExtra);
-            //    if (fitness < minFitness)
-            //    {
-            //        minFitness = fitness;
-            //    }
-            //    lastBudgetExtra = currentBudgetExtra;
-            //}
-
-            //double maxCost = 0;
-            //double cost = 0;
-
-            //foreach (var trade in t)
-            //{
-            //    cost += trade.Size * trade.Price;
-            //    if (cost > maxCost) { maxCost = cost; }
-
-            //    if (maxCost > budget * 0.5d) { return 0; }
-            //}
-
-            //return minFitness;
-            #endregion
-
-            #region - DumbGA
+#if Continuous
             var t = trades.ToList();
-            if (!t.Any()) return 0;            
-            
+            if (!t.Any()) return 0;
+
+            // continuity -> stable performance and delivery of budget extra
+            // get profit at least every 14 days
+            var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 25);
+            var gk = timeFrame / frames;
+            var lastBudgetExtra = 0d;
+            var minFitness = double.MaxValue;
+
+            for (var i = 0; i < frames; i++)
+            {
+                var f0 = gk * i;
+                var f1 = gk * (i + 1);
+                var frameTrades = t
+                    .SkipWhile(x => x.Time < f0)
+                    .TakeWhile(x => x.Time < f1)
+                    .ToList();
+
+                var currentBudgetExtra = frameTrades.LastOrDefault()?.BudgetExtra ?? lastBudgetExtra;
+                var tradeFactor = 1; // TradeCountFactor(frameTrades);
+                var fitness = tradeFactor * (currentBudgetExtra - lastBudgetExtra);
+                if (fitness < minFitness)
+                {
+                    minFitness = fitness;
+                }
+                lastBudgetExtra = currentBudgetExtra;
+            }
+
             double maxCost = 0;
             double cost = 0;
 
@@ -157,11 +129,58 @@
                 cost += trade.Size * trade.Price;
                 if (cost > maxCost) { maxCost = cost; }
 
-                if (maxCost > budget * 0.75d) { return 0; }
+                if (maxCost > budget * 0.5d) { return 0; }
+            }
+
+            return minFitness;
+#elif Dumb
+            var t = trades.ToList();
+            if (!t.Any()) return 0;
+
+            double maxCost = 0;
+            double cost = 0;
+
+            foreach (var trade in t)
+            {
+                cost += trade.Size * trade.Price;
+                if (cost > maxCost) { maxCost = cost; }
+
+                if (maxCost > budget * 0.70d) { return 0; }
             }
 
             return t.Last().BudgetExtra;
-            #endregion
+#elif Triangle
+            var t = trades.ToList();
+
+            //Cut out useless backtests.
+            if (!t.Any()) return 0;
+
+            //double tPerDay = t.Where(x => x.Size != 0).Count() / ((t.Last().Time - t.First().Time) / 86400000d);
+            //if (tPerDay < 5) return 0;
+
+            double maxCost = 0;
+            double cost = 0;
+            foreach (var trade in t)
+            {
+                cost += trade.Size * trade.Price;
+                if (cost > maxCost) { maxCost = cost; }
+
+                if (maxCost > budget * 0.70d) { 
+                    return 0;
+                }
+            }
+            //
+
+            double profit = t.Last().BudgetExtra;
+            double backtestInterval = (t.Last().Time - t.First().Time) / 86400000d;
+            double alertRatio = 1 - (t.Where(x => x.Size == 0).Count() / t.Count());
+
+            double sideA = backtestInterval - (backtestInterval * (alertRatio / 2));
+            double sideB = profit;
+            double fitnessAngle = Math.Atan2(sideB, sideA) * 180.0d / Math.PI;
+
+            return fitnessAngle;
+#endif
         }
     }
 }

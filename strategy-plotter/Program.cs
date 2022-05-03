@@ -1,4 +1,4 @@
-﻿#define GAx   // GA, STATIC
+﻿#define GA  // GA, STATIC
 #define USD   // USD, BTC
 #define CMA // GAMMA, LEVELS, CMA
 
@@ -25,7 +25,7 @@ using System.Text.Json.Serialization;
 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 #region GA data
-var outputSuffix = "-BTC-CMA-";
+var outputSuffix = "-ADA-CMA-";
 #endregion
 
 #region Configuration for static test
@@ -52,12 +52,12 @@ const double tradeRebate = 0; // 0.00025d;
 #if GA
 
 //var filename = "FTX_buyStrength-PERP_21.03.2021_21.10.2021.csv"; //Train-Data
-var filename = "BINANCE_BTCUSDT_01.01.2019_01.01.2020.csv";
+var filename = "KUCOIN_ADA-USDT_01.01.2021_01.01.2022.csv";
 Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 
 #else
-var filename = "FTX_ALPHA-PERP_21.03.2021_21.10.2021.csv"; //Check-Data
-//var filename = "BINANCE_BTCUSDT_01.01.2021_30.04.2022.csv";
+//var filename = "FTX_ALPHA-PERP_21.03.2021_21.10.2021.csv"; //Check-Data
+var filename = "BINANCE_BTCUSDT_01.01.2021_30.04.2022.csv";
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x => {
     //x.BuyStrength.Replace(0.01d);
     //x.SellStrength.Replace(0.01d);
