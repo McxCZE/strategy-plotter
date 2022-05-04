@@ -51,11 +51,11 @@ const double tradeRebate = 0; // 0.00025d;
 #if CMA
 #if GA
 
-var filename = "KUCOIN_ADA-USDT_01.01.2021_03.05.2022.csv"; //Train-Data
+var filename = "ADA-PERP_01.01.2021_02.05.2022.csv"; //Train-Data
 Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 
 #else
-var filename = "KUCOIN_ADA-USDT_01.01.2021_03.05.2022.csv";
+var filename = "ADA-PERP_01.01.2021_02.05.2022.csv";
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x => {
     x.BuyStrength.Replace(0.5d);
     x.SellStrength.Replace(0.5d);

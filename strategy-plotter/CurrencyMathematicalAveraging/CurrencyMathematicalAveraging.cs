@@ -1,4 +1,4 @@
-﻿#define Triangle // Continuous, Dumb, Triangle
+﻿#define HDumb // Continuous, Dumb, Triangle
 namespace strategy_plotter.CurrencyMathematicalAveraging
 {
     class CurrencyMathematicalAveraging : IStrategyPrototype<CurrencyMathematicalAveragingChromosome>
@@ -43,8 +43,9 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 if (distEnter > 1) distEnter = 1;
 
                 //Parabola
-                double buyStrength = Math.Pow(distEnter, 2) / (1 - _buyStrength);
                 double sellStrength = Math.Pow(distEnter, 2) / (1 - _sellStrength);
+                //double sellStrength = Math.Pow(distEnter, 2) / (1 - _sellStrength);
+                double buyStrength = sellStrength / _buyStrength;
 
                 if (buyStrength < 0) buyStrength = 0;
                 if (buyStrength > 1) buyStrength = 1;
@@ -57,8 +58,6 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 double assetsToHoldWhenBuying = (budget * buyStrength) / _enter;
                 double assetsToHoldWhenSelling = (budget * sellStrength) / _enter;
 
-
-
                 if (dir > 0 && _enter > price) 
                 { 
                     size = assetsToHoldWhenBuying - asset;
@@ -68,10 +67,11 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
 
                 if (dir < 0 && _enter < price)
                 {
-                    size = assetsToHoldWhenSelling * -1; // Tady to je rozprcany, neumim prodavat.
-                    if (asset - assetsToHoldWhenSelling > 0) { 
-                        size = asset * -1; 
+                    size = (assetsToHoldWhenSelling - asset) * -1; // Tady to je rozprcany, neumim prodavat.
+                    if (size < 0) {
+                        size = asset;
                     } //Sell everything then;
+                    size = size * dir;
                     //if ((size * -1) > asset) { size = asset * -1; }
                 }
 
