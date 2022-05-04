@@ -21,7 +21,6 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
         public double GetSize(double price, double dir, double asset, double budget, double currency)
         {
             var availableCurrency = Math.Max(0, currency);
-
             double size = 0;
 
             if (double.IsNaN(_enter) || (asset * price) < (budget * 0.01))
@@ -36,7 +35,7 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 double distEnter = 0;
                 var pnl = (asset * price) - (asset * _enter);
 
-                if (_enter > price) { distEnter = (_enter - price) / price; }
+                if (_enter > price) { distEnter = (_enter - price) / _enter; }
                 if (_enter < price) { distEnter = (price - _enter) / price; }
 
 
@@ -45,7 +44,7 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 //Parabola
                 double sellStrength = Math.Pow(distEnter, 2) / (1 - _sellStrength);
                 //double sellStrength = Math.Pow(distEnter, 2) / (1 - _sellStrength);
-                double buyStrength = sellStrength / _buyStrength;
+                double buyStrength = sellStrength / (1 - _buyStrength);
 
                 if (buyStrength < 0) buyStrength = 0;
                 if (buyStrength > 1) buyStrength = 1;
@@ -58,8 +57,9 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 double assetsToHoldWhenBuying = (budget * buyStrength) / _enter;
                 double assetsToHoldWhenSelling = (budget * sellStrength) / _enter;
 
-                if (dir > 0 && _enter > price) 
-                { 
+                
+                if (dir > 0 && _enter > price)
+                {
                     size = assetsToHoldWhenBuying - asset;
                     if (size < 0) { size = 0; } //Do not buy;
                     if (size * price > currency) { size = currency / price; }
@@ -68,9 +68,8 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 if (dir < 0 && _enter < price)
                 {
                     size = (assetsToHoldWhenSelling - asset) * -1; // Tady to je rozprcany, neumim prodavat.
-                    if (size < 0) {
-                        size = asset;
-                    } //Sell everything then;
+                    if (size < 0) { size = asset; } //Sell everything then;
+                    if (size > asset) { size = asset; }
                     size = size * dir;
                     //if ((size * -1) > asset) { size = asset * -1; }
                 }
