@@ -58,7 +58,7 @@ Ga<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>();
 var filename = "ADA-PERP_01.01.2021_02.05.2022.csv";
 StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x => {
     x.BuyStrength.Replace(0.5d);
-    x.SellStrength.Replace(0.5d);
+    x.SellStrength.Replace(0.99d);
 });
 
 //StaticTest<CurrencyMathematicalAveraging, CurrencyMathematicalAveragingChromosome>(x =>
