@@ -10,14 +10,17 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
     {
         public CurrencyMathematicalAveragingChromosome() : base(false)
         {
-            BuyStrength = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.001, 1)); //max:10
-            SellStrength = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.001, 1)); //max:10
+            BuyStrength = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.001, 1)); //max:1
+            SellStrength = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.001, 1)); //max:1
+            InitBet = Factory.Create(() => RandomizationProvider.Current.GetDouble(0.1, 100)); //max:1
             FinalizeGenes();
         }
 
         public GeneWrapper<double> BuyStrength { get; }
 
         public GeneWrapper<double> SellStrength { get; }
+
+        public GeneWrapper<double> InitBet { get; }
 
         public override IChromosome CreateNew() => new CurrencyMathematicalAveragingChromosome();
 
@@ -29,6 +32,7 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 Type = "mathematical_cost_averaging",
                 BuyStrength = BuyStrength,
                 SellStrength = SellStrength,
+                InitBet = InitBet,
                 Backtest = false
             };
             return res;
@@ -45,6 +49,7 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
 
             BuyStrength.Replace(s.BuyStrength);
             SellStrength.Replace(s.SellStrength);
+            InitBet.Replace(s.InitBet);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿#define HDumb // Continuous, Dumb, Triangle
+﻿#define Continuous // Continuous, Dumb, Triangle (Continuous works best).
 namespace strategy_plotter.CurrencyMathematicalAveraging
 {
     class CurrencyMathematicalAveraging : IStrategyPrototype<CurrencyMathematicalAveragingChromosome>
@@ -10,23 +10,29 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
         // Settings
         double _buyStrength; // scaling 0.001
         double _sellStrength; // same
+        double _initBet;
 
         public CurrencyMathematicalAveraging()
         {
             _buyStrength = 0.03d; //default params. (min: 0.001, max : 1)
             _sellStrength = 1.00d; //default params. (min: 0.001, max : 1)
+            _initBet = 0.001d;
         }
 
         //This is what's it all about
         public double GetSize(double price, double dir, double asset, double budget, double currency)
         {
             var availableCurrency = Math.Max(0, currency);
+            double initialBet = ((_initBet / 100) * budget) / price;
             double size = 0;
+            bool alert = true;
 
-            if (double.IsNaN(_enter) || (asset * price) < (budget * 0.01))
+            if (double.IsNaN(_enter) || _enter == 0) // size < minSize
             {
-                // initial bet -> buy
-                size = (budget / price) * 0.02;
+                size = (budget / price) * 0.001; // <- 0,1% of budget init size.
+
+                if (initialBet > size) { size = initialBet; }
+                if (dir < 0) { size = 0; alert = false; }
 
                 if (dir != 0 && Math.Sign(dir) != Math.Sign(size)) size *= -1;
             }
@@ -41,10 +47,23 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
 
                 if (distEnter > 1) distEnter = 1;
 
-                //Parabola
-                double sellStrength = Math.Pow(distEnter, 2) / (1 - _sellStrength);
-                //double sellStrength = Math.Pow(distEnter, 2) / (1 - _sellStrength);
-                double buyStrength = sellStrength / (1 - _buyStrength);
+                double cfgSellStrength = _sellStrength;
+                double cfgBuyStrength = _buyStrength;
+
+                if (cfgSellStrength == 0 || cfgSellStrength <= 0 || double.IsNaN(cfgSellStrength))
+                { cfgSellStrength = 0; }
+                if (cfgBuyStrength == 0 || cfgBuyStrength <= 0 || double.IsNaN(cfgBuyStrength))
+                { cfgBuyStrength = 0; }
+
+                if (cfgSellStrength == 1 || cfgSellStrength >= 1)
+                { cfgSellStrength = 1; }
+                if (cfgBuyStrength == 1 || cfgBuyStrength >= 1)
+                { cfgBuyStrength = 1; }
+
+                //Parabola + Sinus
+                double sellStrength = Math.Sin(Math.Pow(distEnter, 2) + (Math.PI)) / Math.Pow(1 - cfgSellStrength, 4) + 1;
+                double buyStrength = Math.Sin(Math.Pow(distEnter, 2)) / Math.Pow(1 - cfgBuyStrength, 4);
+
 
                 if (buyStrength < 0) buyStrength = 0;
                 if (buyStrength > 1) buyStrength = 1;
@@ -54,29 +73,47 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 if (sellStrength > 1) sellStrength = 1;
                 if (double.IsNaN(sellStrength)) sellStrength = 0;
 
-                double assetsToHoldWhenBuying = (budget * buyStrength) / _enter;
-                double assetsToHoldWhenSelling = (budget * sellStrength) / _enter;
+                double assetsToHoldWhenBuying = (budget * buyStrength) / price;
+                double assetsToHoldWhenSelling = (budget * sellStrength) / price;
 
                 
                 if (dir > 0 && _enter > price)
                 {
                     size = assetsToHoldWhenBuying - asset;
-                    if (size < 0) { size = 0; } //Do not buy;
-                    if (size * price > currency) { size = currency / price; }
+                    if (size < 0) { 
+                        //size = minSize; 
+                        alert = false; 
+                    } //Do not buy;
+                    if (size * price > availableCurrency) { 
+                        size = availableCurrency / price;
+                    }
                 }
 
                 if (dir < 0 && _enter < price)
                 {
-                    size = (assetsToHoldWhenSelling - asset) * -1; // Tady to je rozprcany, neumim prodavat.
-                    if (size < 0) { size = asset; } //Sell everything then;
-                    if (size > asset) { size = asset; }
+                    size = assetsToHoldWhenSelling - asset; // Tady to je rozprcany, neumim prodavat.
+                    if (size < 0) { 
+                        size = asset;
+                    } //Sell everything then;
+
+                    if (size > asset) { 
+                        size = 0; 
+                        alert = false;
+                    }
                     size = size * dir;
                     //if ((size * -1) > asset) { size = asset * -1; }
                 }
 
+                if (dir > 0 && _enter < price) {
+                    alert = false; 
+                }
+
+                if (dir < 0 && _enter > price) {
+                    alert = false;
+                }
+
                 if (pnl < 0 && dir < 0) { size = 0; }
 
-                size = size;
             }
             return size;
         }
@@ -101,7 +138,8 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
                 _enter = double.NaN,
 
                 _buyStrength = chromosome.BuyStrength,
-                _sellStrength = chromosome.SellStrength
+                _sellStrength = chromosome.SellStrength,
+                _initBet = chromosome.InitBet
             };
         }
 
@@ -113,6 +151,8 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
 #if Continuous
             var t = trades.ToList();
             if (!t.Any()) return 0;
+            // Kde Currency padlo pod 25% budgetu zahoď. 
+            if (t.Where(x => x.Currency < (budget * 0.25d)).Count() > 0) return 0;
 
             // continuity -> stable performance and delivery of budget extra
             // get profit at least every 14 days
@@ -173,42 +213,49 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
 
             //Cut out useless backtests.
             if (!t.Any()) return 0;
-            if (t.Where(x => x.Currency < (budget * 0.75d)).Count() > 0) return 0;
+            if ( t.Where( x=> x.Size == 0).Count() / t.Count() > 0.5) { return 0; }
 
-            var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 14);
-            var gk = timeFrame / frames;
-            var minFitness = double.MaxValue;
+            //if (t.Where(x => x.Currency < (budget * 0.95d)).Count() > 0) return 0;
 
-            for (var i = 0; i < frames; i++)
-            {
-                var f0 = gk * i;
-                var f1 = gk * (i + 1);
-                var frameTrades = t
-                    .SkipWhile(x => x.Time < f0)
-                    .TakeWhile(x => x.Time < f1)
-                    .ToList();
-                var ftCount = frameTrades.Count();
-                double alertRatio = 1;
+            //var frames = (int)(TimeSpan.FromMilliseconds(timeFrame).TotalDays / 4);
+            //var gk = timeFrame / frames;
+            //var minFitness = double.MaxValue;
 
-                double profit = frameTrades.LastOrDefault()?.BudgetExtra ?? 0;
-                double backtestInterval = 25;
+            //for (var i = 0; i < frames; i++)
+            //{
+            //    var f0 = gk * i;
+            //    var f1 = gk * (i + 1);
+            //    var frameTrades = t
+            //        .SkipWhile(x => x.Time < f0)
+            //        .TakeWhile(x => x.Time < f1)
+            //        .ToList();
 
-                if (ftCount != 0) {
-                    alertRatio = 1 - (frameTrades.Where(x => x.Size == 0).Count() / frameTrades.Count());
-                };
+            //    //var ftCount = frameTrades.Where(x => x.Size != 0).Count();
+                
+            //    double profit = frameTrades.LastOrDefault()?.BudgetExtra ?? 0;
+            //    double backtestInterval = 4;
 
-                double sideA = backtestInterval - (backtestInterval * (alertRatio / 2));
-                double sideB = profit;
-                double fitnessAngle = Math.Atan2(sideB, sideA) * 180.0d / Math.PI;
+            //    double sideA = backtestInterval; //- (backtestInterval * (poměr));
+            //    double sideB = profit;
+            //    double fitnessAngle = Math.Atan2(sideB, sideA) * 180.0d / Math.PI;
 
-                var fitness = fitnessAngle;
-                if (fitness < minFitness)
-                {
-                    minFitness = fitness;
-                }
-            }
+            //    var fitness = fitnessAngle;
+            //    if (fitness < minFitness)
+            //    {
+            //        minFitness = fitness;
+            //    }
+            //}
 
-            return minFitness;
+            double profit = t.Last().BudgetExtra;
+            double backtestInterval = (t.Last().Time - t.First().Time) / 86400000d;
+
+            double sideA = backtestInterval; //- (backtestInterval * (poměr));
+            double sideB = profit;
+            double fitnessAngle = Math.Atan2(sideB, sideA) * 180.0d / Math.PI;
+
+            var fitness = fitnessAngle;
+
+            return fitness;
 #else
             var t = trades.ToList();
             if (!t.Any()) return 0;

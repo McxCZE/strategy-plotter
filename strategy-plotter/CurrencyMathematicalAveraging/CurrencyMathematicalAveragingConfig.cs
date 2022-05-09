@@ -13,6 +13,9 @@ namespace strategy_plotter.CurrencyMathematicalAveraging
         [JsonPropertyName("sellStrength")]
         public double SellStrength { get; set; }
 
+        [JsonPropertyName("initBet")]
+        public double InitBet { get; set; }
+
         [JsonPropertyName("backtest")]
         public bool Backtest { get; set; }
     }
